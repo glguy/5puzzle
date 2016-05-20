@@ -1,24 +1,26 @@
 {-# Language TypeFamilies #-}
+{-# Language PackageImports #-}
 module Main where
 
-import Data.List (sort, findIndex, nub, mapAccumL)
-import Data.List.Split (splitWhen)
-import Data.Maybe
-import Linear
-import Control.Applicative
-import Control.Lens
-import Control.Monad
-import qualified Data.Set as Set
-import Data.Set ( Set )
-import Ersatz
-import Control.Monad.State (MonadState)
-import Diagrams.Prelude hiding ((===))
-import Diagrams.Backend.SVG.CmdLine
+import "base"         Data.List ((\\), sort, findIndex, nub, mapAccumL)
+import "base"         Data.Maybe (fromJust)
+import "base"         Control.Applicative (liftA2)
+import "base"         Control.Monad (replicateM)
+import                Prelude hiding (not, or, and, all, (&&), (||))
 
-import Prelude hiding (not, or, and, all, (&&), (||))
+import "colour"       Data.Colour.Names
+import "diagrams-lib" Diagrams.Prelude (Diagram, Colour, scale, translate, fc, square)
+import "diagrams-svg" Diagrams.Backend.SVG.CmdLine (B, mainWith)
+import "ersatz"       Ersatz
+import "linear"       Linear (V2(V2))
+import "mtl"          Control.Monad.State (MonadState)
+import "split"        Data.List.Split (splitWhen)
 
 newtype Piece = Piece [V2 Int]
   deriving (Show, Eq)
+
+------------------------------------------------------------------------
+-- Piece parsing and loading
 
 loadPieces :: IO [Piece]
 loadPieces =
@@ -28,22 +30,23 @@ loadPieces =
 
 parsePiece :: [String] -> Piece
 parsePiece xs = Piece [ V2 rowIx colIx
-                        | (rowIx, row) <- addIx xs
-                        , (colIx, '*') <- addIx row
+                        | (rowIx, row) <- zip [0..] xs
+                        , (colIx, '*') <- zip [0..] row
                         ]
 
 ------------------------------------------------------------------------
+-- Piece manipulation
 
 translatePiece :: V2 Int -> Piece -> Piece
-translatePiece offset (Piece xs) = Piece (liftA2 (+) offset <$> xs)
+translatePiece o (Piece xs) = Piece (liftA2 (+) o <$> xs)
 
 -- | Translate a piece such that it's minimum row and column
 -- are at index 0.
 retranslate :: Piece -> Piece
 retranslate (Piece []) = Piece []
-retranslate (Piece xs) = translatePiece (negate offset) (Piece xs)
+retranslate (Piece xs) = translatePiece (negate o) (Piece xs)
   where
-  offset = foldl1 (liftA2 min) xs
+  o = foldl1 (liftA2 min) xs
 
 -- | Arrange the coördinates of a piece in a sorted order to
 -- make the pieces suitable for comparison with each other.
@@ -52,47 +55,57 @@ normalizePiece (Piece xs) = Piece (sort xs)
 
 -- | Find all possible positions that a given piece could fit on an
 -- empty board.
-orientations :: Piece -> [Piece]
-orientations (Piece xs)
-  = nub
-  $ map normalizePiece
-  $ filter fits
-  [ translatePiece (V2 dx dy) p
-  | f <- [id, \(V2 x y) -> V2 y x]
-  , g <- [id, over _x negate]
-  , h <- [id, over _y negate]
-  , let p = retranslate (Piece (h . g . f <$> xs))
+placements :: Piece -> [Piece]
+placements p =
+  [ p2
+  | p1 <- orientations p
   , dx <- [0..7]
   , dy <- [0..7]
+  , let p2 = translatePiece (V2 dx dy) p1
+  , fits p2
   ]
-
--- | Set of valid board locations
-initialBoard :: Set (V2 Int)
-initialBoard = Set.fromList (liftA2 V2 [0..7] [0..7])
-               Set.\\
-               Set.fromList (liftA2 V2 [3..4] [3..4])
 
 -- | Predicate to test if all piece coördinates are valid board locations
 fits :: Piece -> Bool
-fits (Piece xs) = all (`Set.member` initialBoard) xs
+fits (Piece xs) = all (`elem` boardPositions) xs
+
+-- | Given a piece return a list of the unique ways it can be rotated
+-- and flipped.
+orientations :: Piece -> [Piece]
+orientations (Piece xs) =
+  nub [ normalizePiece (retranslate p)
+      | f <- [id, \(V2 x y) -> V2 y x]
+      , g <- [id, \(V2 x y) -> V2 (-x) y]
+      , h <- [id, \(V2 x y) -> V2 x (-y)]
+      , let p = Piece (h . g . f <$> xs)
+      ]
+
+------------------------------------------------------------------------
+-- Piece to board operations
 
 -- | Given a bit indicating if this piece is active construct a board
 -- representing the locations covered by this piece.
 pieceToBits :: Bit -> Piece -> Board
 pieceToBits active (Piece xs) = Board
-  [ active && bool (V2 row col `elem` xs) | V2 row col <- Set.toList initialBoard ]
+  [ active && bool (x `elem` xs) | x <- boardPositions ]
 
 -- | Construct a board representing the locations covered by the selected
 -- piece in a set of possible choices.
 selectPieceMask :: Select Piece -> Board
 selectPieceMask (Select xs n) =
-  or [ pieceToBits (fromIntegral i === n) o | (i,o) <- addIx xs ]
+  or [ pieceToBits (fromIntegral i === n) o | (i,o) <- zip [0..] xs ]
 
 ------------------------------------------------------------------------
 
 -- | A board is a collection of bits indicating whether each location is
 -- covered by a piece or not.
 newtype Board = Board [Bit] -- Invariant: One element per initialBoard location
+
+-- | Set of valid board locations: 8x8 grid with center 2x2 square removed
+boardPositions :: [V2 Int]
+boardPositions = liftA2 V2 [0..7] [0..7]
+              \\ liftA2 V2 [3..4] [3..4]
+
 
 -- | Boards are equal when all corresponding locations are equally covered.
 instance Equatable Board where
@@ -111,7 +124,7 @@ instance Boolean Board where
 
 -- Lifts a nullary operation on bits to boards
 boardOp0 :: Bit -> Board
-boardOp0 x = Board (x <$ Set.toList initialBoard)
+boardOp0 x = Board (x <$ boardPositions)
 
 -- Lifts a unary operation on bits to boards
 boardOp1 :: (Bit -> Bit) -> Board -> Board
@@ -121,9 +134,9 @@ boardOp1 f (Board xs) = Board (map f xs)
 boardOp2 :: (Bit -> Bit -> Bit) -> Board -> Board -> Board
 boardOp2 f (Board xs) (Board ys) = Board (zipWith f xs ys)
 
+
 ------------------------------------------------------------------------
-
-
+-- Main program logic
 
 main :: IO ()
 main =
@@ -135,7 +148,7 @@ main =
 -- predicate for this puzzle.
 problem :: (HasSAT s, MonadState s m) => [Piece] -> m [Select Piece]
 problem pieces =
-  do choices <- traverse (select . orientations) pieces
+  do choices <- traverse (select . placements) pieces
      assert (choicePredicate choices)
      return choices
 
@@ -154,6 +167,7 @@ exactlyOne xs = allCovered && nor overlaps
 
 
 ------------------------------------------------------------------------
+-- Solution renderer
 
 drawSolution :: [Piece] -> Diagram B
 drawSolution = scale 50 . foldMap (uncurry drawPiece) . zip palette
@@ -171,11 +185,7 @@ palette = [red, yellow, blue, brown, black, green,
            cyan, salmon, orange, gold, gray, pink]
 
 ------------------------------------------------------------------------
-
-addIx :: [a] -> [(Int,a)]
-addIx = zip [0..]
-
-------------------------------------------------------------------------
+-- Symbolic variables with dynamic range
 
 -- | Bits needed to distinguish the given number of elements
 bitsNeeded :: Int -> Int
@@ -190,8 +200,7 @@ existsNat bound =
      return x
 
 ------------------------------------------------------------------------
-
-
+-- Type representing a symbolic choice from a set
 
 -- | A set of choices and an index of the chosen element of that set
 data Select a = Select [a] Bits
