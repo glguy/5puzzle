@@ -13,8 +13,11 @@ import "diagrams-lib" Diagrams.Prelude (Diagram, Colour, scale, translate, fc, s
 import "diagrams-svg" Diagrams.Backend.SVG.CmdLine (B, mainWith)
 import "ersatz"       Ersatz
 import "linear"       Linear (V2(V2))
-import "mtl"          Control.Monad.State (MonadState)
+import "transformers" Control.Monad.Trans.State (StateT)
 import "split"        Data.List.Split (splitWhen)
+
+import BitVector (BitVector)
+import qualified BitVector
 
 newtype Piece = Piece [V2 Int]
   deriving (Show, Eq)
@@ -81,13 +84,27 @@ orientations (Piece xs) =
       ]
 
 ------------------------------------------------------------------------
+-- Board representation
+
+type Board = BitVector
+
+-- | Constructor for boards
+mkBoard :: (V2 Int -> Bit) -> Board
+mkBoard f = BitVector.fromList (f <$> boardPositions)
+
+-- | Set of valid board locations: 8x8 grid with center 2x2 square removed
+boardPositions :: [V2 Int]
+boardPositions = liftA2 V2 [0..7] [0..7]
+              \\ liftA2 V2 [3..4] [3..4]
+
+------------------------------------------------------------------------
 -- Piece to board operations
+
 
 -- | Given a bit indicating if this piece is active construct a board
 -- representing the locations covered by this piece.
 pieceToBits :: Bit -> Piece -> Board
-pieceToBits active (Piece xs) = Board
-  [ active && bool (x `elem` xs) | x <- boardPositions ]
+pieceToBits active (Piece xs) = mkBoard $ \x -> active && bool (x `elem` xs)
 
 -- | Construct a board representing the locations covered by the selected
 -- piece in a set of possible choices.
@@ -95,48 +112,11 @@ selectPieceMask :: Select Piece -> Board
 selectPieceMask (Select xs n) =
   or [ pieceToBits (fromIntegral i === n) o | (i,o) <- zip [0..] xs ]
 
-------------------------------------------------------------------------
-
--- | A board is a collection of bits indicating whether each location is
--- covered by a piece or not.
-newtype Board = Board [Bit] -- Invariant: One element per initialBoard location
-
--- | Set of valid board locations: 8x8 grid with center 2x2 square removed
-boardPositions :: [V2 Int]
-boardPositions = liftA2 V2 [0..7] [0..7]
-              \\ liftA2 V2 [3..4] [3..4]
-
-
--- | Boards are equal when all corresponding locations are equally covered.
-instance Equatable Board where
-  Board xs === Board ys = xs === ys
-
--- | Boolean operations on boards are treated as point-wise boolean operations
--- on the locations of boards.
-instance Boolean Board where
-  bool     = boardOp0 . bool
-  (&&)     = boardOp2 (&&)
-  (||)     = boardOp2 (||)
-  not      = boardOp1 not
-  all f    = foldr (\y ys -> f y && ys) true
-  any f    = foldr (\y ys -> f y || ys) false
-  xor      = boardOp2 xor
-
--- Lifts a nullary operation on bits to boards
-boardOp0 :: Bit -> Board
-boardOp0 x = Board (x <$ boardPositions)
-
--- Lifts a unary operation on bits to boards
-boardOp1 :: (Bit -> Bit) -> Board -> Board
-boardOp1 f (Board xs) = Board (map f xs)
-
--- Lifts a binary operation on bits to boards
-boardOp2 :: (Bit -> Bit -> Bit) -> Board -> Board -> Board
-boardOp2 f (Board xs) (Board ys) = Board (zipWith f xs ys)
-
 
 ------------------------------------------------------------------------
 -- Main program logic
+
+type M = StateT SAT IO
 
 main :: IO ()
 main =
@@ -146,7 +126,7 @@ main =
 
 -- | Select an arrangement of the pieces that satisfies the covering
 -- predicate for this puzzle.
-problem :: (HasSAT s, MonadState s m) => [Piece] -> m [Select Piece]
+problem :: [Piece] -> M [Select Piece]
 problem pieces =
   do choices <- traverse (select . placements) pieces
      assert (choicePredicate choices)
@@ -154,7 +134,8 @@ problem pieces =
 
 -- | A choice is valid when every location on the board is covered exactly once
 choicePredicate :: [Select Piece] -> Bit
-choicePredicate choices = true === exactlyOne (selectPieceMask <$> choices)
+choicePredicate choices = mkBoard (const true)
+                      === exactlyOne (selectPieceMask <$> choices)
 
 -- | Returns a summary value of where a boolean is true in exactly
 -- one position in the list.
@@ -193,7 +174,7 @@ bitsNeeded x = fromJust (findIndex (>= x) (iterate (*2) 1))
 
 -- | Generate a variable-bit symbolic term capable of representing the
 -- natural numbers below the given bound.
-existsNat :: (HasSAT s, MonadState s m) => Int -> m Bits
+existsNat :: Int -> M Bits
 existsNat bound =
   do x <- Bits <$> replicateM (bitsNeeded bound) exists
      assert (x <? fromIntegral bound)
@@ -205,14 +186,15 @@ existsNat bound =
 -- | A set of choices and an index of the chosen element of that set
 data Select a = Select [a] Bits
 
-select :: (HasSAT s, MonadState s m) => [a] -> m (Select a)
-select xs =
-  do n <- existsNat (length xs)
-     return (Select xs n)
+select :: [a] -> M (Select a)
+select xs = Select xs <$> existsNat (length xs)
 
 instance Codec (Select a) where
+
   type Decoded (Select a) = a
+
   encode x = Select [x] 0
+
   decode sol (Select xs i) =
     do j <- decode sol i
        return (xs !! fromIntegral j)
