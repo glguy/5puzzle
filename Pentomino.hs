@@ -6,6 +6,7 @@ import "base"         Data.List ((\\), sort, findIndex, nub, mapAccumL)
 import "base"         Data.Maybe (fromJust)
 import "base"         Control.Applicative (liftA2)
 import "base"         Control.Monad (replicateM)
+import "base"         System.Environment (getArgs)
 import                Prelude hiding (not, or, and, all, (&&), (||))
 
 import "colour"       Data.Colour.Names
@@ -25,9 +26,9 @@ newtype Piece = Piece [V2 Int]
 ------------------------------------------------------------------------
 -- Piece parsing and loading
 
-loadPieces :: IO [Piece]
-loadPieces =
-  do txt <- readFile "pieces.txt"
+loadPieces :: FilePath -> IO [Piece]
+loadPieces fn =
+  do txt <- readFile fn
      let rawPieces = splitWhen null (lines txt)
      return (map parsePiece rawPieces)
 
@@ -58,13 +59,12 @@ normalizePiece (Piece xs) = Piece (sort xs)
 
 -- | Find all possible positions that a given piece could fit on an
 -- empty board.
-placements :: Piece -> [Piece]
-placements p =
-  [ translatePiece (V2 dx dy) p'
-  | p' <- orientations p
-  , dx <- [0..7]
-  , dy <- [0..7]
-  ]
+placements :: [V2 Int] -> Piece -> [Piece]
+placements board p = translatePiece <$> offsets <*> orientations p
+  where
+  offsets = V2 <$> [xlo .. xhi] <*> [ylo .. yhi]
+  V2 xlo ylo = foldl1 (liftA2 min) board
+  V2 xhi yhi = foldl1 (liftA2 max) board
 
 -- | Given a piece return a list of the unique ways it can be rotated
 -- and flipped.
@@ -81,11 +81,6 @@ orientations (Piece xs) =
 -- Board representation
 
 type Board = SparseMap (V2 Int) Bit
-
--- | Set of valid board locations: 8x8 grid with center 2x2 square removed
-boardPositions :: [V2 Int]
-boardPositions = liftA2 V2 [0..7] [0..7]
-              \\ liftA2 V2 [3..4] [3..4]
 
 ------------------------------------------------------------------------
 -- Piece to board operations
@@ -109,25 +104,29 @@ type M = StateT SAT IO
 
 main :: IO ()
 main =
-  do pieces <- loadPieces
-     (Satisfied, Just sol) <- solveWith minisat (problem pieces)
+  do args <- getArgs
+     let fn = case args of
+                []  -> "pieces.txt"
+                x:_ -> x
+     Piece board:pieces <- loadPieces fn
+     (Satisfied, Just sol) <- solveWith minisat (problem board pieces)
      let sizeSpec = mkSizeSpec (pure Nothing)
      renderSVG "output.svg" sizeSpec (drawSolution sol)
      putStrLn "Solution saved to output.svg"
 
 -- | Select an arrangement of the pieces that satisfies the covering
 -- predicate for this puzzle.
-problem :: [Piece] -> M [Select Piece]
-problem pieces =
-  do choices <- traverse (select . placements) pieces
-     assert (choicePredicate choices)
+problem :: [V2 Int] -> [Piece] -> M [Select Piece]
+problem board pieces =
+  do choices <- traverse (select . placements board) pieces
+     assert (choicePredicate board choices)
      return choices
 
 -- | A choice is valid when every location on the board is covered exactly once
-choicePredicate :: [Select Piece] -> Bit
-choicePredicate choices = true === validPositions
+choicePredicate :: [V2 Int] -> [Select Piece] -> Bit
+choicePredicate board choices = true === validPositions
   where
-  boardMask    = falseList boardPositions
+  boardMask    = falseList board
   pieceBitMaps = map selectPieceMask choices
   validPositions = exactlyOne (boardMask : pieceBitMaps)
 
@@ -151,9 +150,12 @@ drawPiece :: Colour Double -> Piece -> Diagram B
 drawPiece c (Piece xs) = foldMap (drawSquare c) xs
 
 drawSquare :: Colour Double -> V2 Int -> Diagram B
-drawSquare c o = translate (fromIntegral <$> o)
+drawSquare c o = translate (convertCoordinate o)
                $ fc c
                $ square 1
+
+convertCoordinate :: V2 Int -> V2 Double
+convertCoordinate (V2 row col) = V2 (fromIntegral col) (- fromIntegral row)
 
 palette :: [Colour Double]
 palette = [red, yellow, blue, brown, black, green,
