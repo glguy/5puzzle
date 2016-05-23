@@ -9,8 +9,8 @@ import "base"         Control.Monad (replicateM)
 import                Prelude hiding (not, or, and, all, (&&), (||))
 
 import "colour"       Data.Colour.Names
-import "diagrams-lib" Diagrams.Prelude (Diagram, Colour, scale, translate, fc, square)
-import "diagrams-svg" Diagrams.Backend.SVG.CmdLine (B, mainWith)
+import "diagrams-lib" Diagrams.Prelude (Diagram, Colour, mkSizeSpec, scale, translate, fc, square)
+import "diagrams-svg" Diagrams.Backend.SVG (B, renderSVG)
 import "ersatz"       Ersatz
 import "linear"       Linear (V2(V2))
 import "transformers" Control.Monad.Trans.State (StateT)
@@ -60,17 +60,11 @@ normalizePiece (Piece xs) = Piece (sort xs)
 -- empty board.
 placements :: Piece -> [Piece]
 placements p =
-  [ p2
-  | p1 <- orientations p
+  [ translatePiece (V2 dx dy) p'
+  | p' <- orientations p
   , dx <- [0..7]
   , dy <- [0..7]
-  , let p2 = translatePiece (V2 dx dy) p1
-  , fits p2
   ]
-
--- | Predicate to test if all piece coördinates are valid board locations
-fits :: Piece -> Bool
-fits (Piece xs) = all (`elem` boardPositions) xs
 
 -- | Given a piece return a list of the unique ways it can be rotated
 -- and flipped.
@@ -117,7 +111,9 @@ main :: IO ()
 main =
   do pieces <- loadPieces
      (Satisfied, Just sol) <- solveWith minisat (problem pieces)
-     mainWith (drawSolution sol)
+     let sizeSpec = mkSizeSpec (pure Nothing)
+     renderSVG "output.svg" sizeSpec (drawSolution sol)
+     putStrLn "Solution saved to output.svg"
 
 -- | Select an arrangement of the pieces that satisfies the covering
 -- predicate for this puzzle.
@@ -129,9 +125,11 @@ problem pieces =
 
 -- | A choice is valid when every location on the board is covered exactly once
 choicePredicate :: [Select Piece] -> Bit
-choicePredicate choices = true === exactlyOne (boardMask : map selectPieceMask choices)
+choicePredicate choices = true === validPositions
   where
-  boardMask = falseList boardPositions
+  boardMask    = falseList boardPositions
+  pieceBitMaps = map selectPieceMask choices
+  validPositions = exactlyOne (boardMask : pieceBitMaps)
 
 -- | Returns a summary value of where a boolean is true in exactly
 -- one position in the list.
