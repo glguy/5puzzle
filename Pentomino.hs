@@ -16,8 +16,8 @@ import "linear"       Linear (V2(V2))
 import "transformers" Control.Monad.Trans.State (StateT)
 import "split"        Data.List.Split (splitWhen)
 
-import BitVector (BitVector)
-import qualified BitVector
+import Select
+import SparseMap
 
 newtype Piece = Piece [V2 Int]
   deriving (Show, Eq)
@@ -86,11 +86,7 @@ orientations (Piece xs) =
 ------------------------------------------------------------------------
 -- Board representation
 
-type Board = BitVector
-
--- | Constructor for boards
-mkBoard :: (V2 Int -> Bit) -> Board
-mkBoard f = BitVector.fromList (f <$> boardPositions)
+type Board = SparseMap (V2 Int) Bit
 
 -- | Set of valid board locations: 8x8 grid with center 2x2 square removed
 boardPositions :: [V2 Int]
@@ -103,14 +99,13 @@ boardPositions = liftA2 V2 [0..7] [0..7]
 
 -- | Given a bit indicating if this piece is active construct a board
 -- representing the locations covered by this piece.
-pieceToBits :: Bit -> Piece -> Board
-pieceToBits active (Piece xs) = mkBoard $ \x -> active && bool (x `elem` xs)
+pieceToBits :: Piece -> Board
+pieceToBits (Piece xs) = trueList xs
 
 -- | Construct a board representing the locations covered by the selected
 -- piece in a set of possible choices.
 selectPieceMask :: Select Piece -> Board
-selectPieceMask (Select xs n) =
-  or [ pieceToBits (fromIntegral i === n) o | (i,o) <- zip [0..] xs ]
+selectPieceMask = foldSelect $ \active o -> constant active && pieceToBits o
 
 
 ------------------------------------------------------------------------
@@ -134,8 +129,9 @@ problem pieces =
 
 -- | A choice is valid when every location on the board is covered exactly once
 choicePredicate :: [Select Piece] -> Bit
-choicePredicate choices = mkBoard (const true)
-                      === exactlyOne (selectPieceMask <$> choices)
+choicePredicate choices = true === exactlyOne (boardMask : map selectPieceMask choices)
+  where
+  boardMask = falseList boardPositions
 
 -- | Returns a summary value of where a boolean is true in exactly
 -- one position in the list.
@@ -164,37 +160,3 @@ drawSquare c o = translate (fromIntegral <$> o)
 palette :: [Colour Double]
 palette = [red, yellow, blue, brown, black, green,
            cyan, salmon, orange, gold, gray, pink]
-
-------------------------------------------------------------------------
--- Symbolic variables with dynamic range
-
--- | Bits needed to distinguish the given number of elements
-bitsNeeded :: Int -> Int
-bitsNeeded x = fromJust (findIndex (>= x) (iterate (*2) 1))
-
--- | Generate a variable-bit symbolic term capable of representing the
--- natural numbers below the given bound.
-existsNat :: Int -> M Bits
-existsNat bound =
-  do x <- Bits <$> replicateM (bitsNeeded bound) exists
-     assert (x <? fromIntegral bound)
-     return x
-
-------------------------------------------------------------------------
--- Type representing a symbolic choice from a set
-
--- | A set of choices and an index of the chosen element of that set
-data Select a = Select [a] Bits
-
-select :: [a] -> M (Select a)
-select xs = Select xs <$> existsNat (length xs)
-
-instance Codec (Select a) where
-
-  type Decoded (Select a) = a
-
-  encode x = Select [x] 0
-
-  decode sol (Select xs i) =
-    do j <- decode sol i
-       return (xs !! fromIntegral j)
