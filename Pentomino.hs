@@ -19,6 +19,7 @@ import "split"        Data.List.Split (splitWhen)
 
 import Select
 import SparseMap
+import Booleans
 
 newtype Piece = Piece [V2 Int]
   deriving (Show, Eq)
@@ -94,7 +95,7 @@ pieceToBits (Piece xs) = trueList xs
 -- | Construct a board representing the locations covered by the selected
 -- piece in a set of possible choices.
 selectPieceMask :: Select Piece -> Board
-selectPieceMask = foldSelect $ \active o -> constant active && pieceToBits o
+selectPieceMask = runSelectWith pieceToBits
 
 
 ------------------------------------------------------------------------
@@ -124,20 +125,11 @@ problem board pieces =
 
 -- | A choice is valid when every location on the board is covered exactly once
 choicePredicate :: [V2 Int] -> [Select Piece] -> Bit
-choicePredicate board choices = true === validPositions
+choicePredicate board choices = isTrue validPositions
   where
   boardMask    = falseList board
   pieceBitMaps = map selectPieceMask choices
   validPositions = exactlyOne (boardMask : pieceBitMaps)
-
--- | Returns a summary value of where a boolean is true in exactly
--- one position in the list.
-exactlyOne :: Boolean a => [a] -> a
-exactlyOne xs = allCovered && nor overlaps
-  where
-  (allCovered, overlaps) = mapAccumL addMask false xs
-
-  addMask covered mask = (covered || mask, covered && mask)
 
 
 ------------------------------------------------------------------------
@@ -158,5 +150,5 @@ convertCoordinate :: V2 Int -> V2 Double
 convertCoordinate (V2 row col) = V2 (fromIntegral col) (- fromIntegral row)
 
 palette :: [Colour Double]
-palette = [red, yellow, blue, brown, black, green,
+palette = cycle [red, yellow, blue, brown, black, green,
            cyan, salmon, orange, gold, gray, pink]

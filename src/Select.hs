@@ -1,42 +1,60 @@
 {-# Language TypeFamilies #-}
-module Select where
+module Select
+  ( Select
+  , runSelect
+  , runSelectWith
+  , select
+  ) where
 
 import Ersatz
+import FromBit
 import Data.Maybe
 import Data.List (findIndex)
 import Control.Monad.State
-import Prelude hiding (or)
+import Prelude hiding (or, (&&))
 
 -- | A set of choices and an index of the chosen element of that set
-data Select a = Select [a] Bits
+data Select a = Selected a | Choice Bit (Select a) (Select a)
 
 select :: (MonadState s m, HasSAT s) => [a] -> m (Select a)
-select xs = Select xs <$> existsNat (length xs)
+select xs = merge (map Selected xs)
+  where
+  merge []  = error "select: empty list"
+  merge [x] = return x
+  merge xs  = do b   <- exists
+                 xs' <- reduce b xs
+                 merge xs'
 
-foldSelect :: Boolean b => (Bit -> a -> b) -> Select a -> b
-foldSelect f (Select xs i) = or [ f (i === fromIntegral j) x | (j,x) <- zip [0 :: Int ..] xs ]
+  reduce b (x1:x2:xs) =
+     do xs' <- reduce b xs
+        return (Choice b x1 x2 : xs')
+  reduce _ xs = return xs
+
+runSelect :: FromBit a => Select a -> a
+runSelect (Selected x)   = x
+runSelect (Choice b x y) = choose (runSelect x) (runSelect y) (fromBit b)
 
 instance Codec (Select a) where
 
   type Decoded (Select a) = a
 
-  encode x = Select [x] 0
+  encode = Selected
 
-  decode sol (Select xs i) =
-    do j <- decode sol i
-       return (xs !! fromIntegral j)
+  decode _ (Selected x) = return x
+  decode sol (Choice b x y) =
+    do b' <- decode sol b
+       decode sol (if b' then y else x)
 
-------------------------------------------------------------------------
--- Symbolic variables with dynamic range
+runSelectWith :: FromBit b => (a -> b) -> Select a -> b
+runSelectWith f x = runSelect (fmap f x)
 
--- | Bits needed to distinguish the given number of elements
-bitsNeeded :: Int -> Int
-bitsNeeded x = fromJust (findIndex (>= x) (iterate (*2) 1))
+instance Functor Select where
+  fmap = liftM
 
--- | Generate a variable-bit symbolic term capable of representing the
--- natural numbers below the given bound.
-existsNat :: (MonadState s m, HasSAT s) => Int -> m Bits
-existsNat bound =
-  do x <- Bits <$> replicateM (bitsNeeded bound) exists
-     assert (x <? fromIntegral bound)
-     return x
+instance Applicative Select where
+  pure = Selected
+  (<*>) = ap
+
+instance Monad Select where
+  Selected x   >>= f = f x
+  Choice b x y >>= f = Choice b (x >>= f) (y >>= f)

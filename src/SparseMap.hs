@@ -1,6 +1,7 @@
 module SparseMap (SparseMap(..), trueList, falseList, index, insert, constant) where
 
 import Ersatz
+import FromBit
 import Prelude hiding ((&&), (||), not)
 import Control.Applicative
 
@@ -9,6 +10,9 @@ import qualified Data.Map as Map
 
 data SparseMap k v = SparseMap (Map k v) v
   deriving (Read, Show)
+
+instance (Ord k, FromBit v) => FromBit (SparseMap k v) where
+  fromBit = constant . fromBit
 
 instance Functor (SparseMap k) where
   fmap f (SparseMap m x) = SparseMap (f <$> m) (f x)

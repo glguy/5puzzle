@@ -4,6 +4,7 @@ module Main where
 import Ersatz
 import SparseMap
 import Select
+import Booleans
 
 import Data.List ((\\), mapAccumL)
 import Prelude hiding ((&&), (||), or, not)
@@ -29,7 +30,7 @@ pieceBitMap :: Piece -> SparseMap Coord Bit
 pieceBitMap (Piece xs) = trueList xs
 
 selectPieceBitMap :: Select Piece -> SparseMap Coord Bit
-selectPieceBitMap = foldSelect $ \active p -> constant active && pieceBitMap p
+selectPieceBitMap = runSelectWith pieceBitMap
 
 ------------------------------------------------------------------------
 -- Board locations and piece possibilities
@@ -65,7 +66,7 @@ problem rows cols =
      return pieces
 
 validArrangement :: Int -> Int -> [Select Piece] -> Bit
-validArrangement rows cols pieces = true === validLocations
+validArrangement rows cols pieces = isTrue validLocations
   where
   boardMask         = falseList (boardLocations rows cols)
   pieceBitMaps      = map selectPieceBitMap pieces
@@ -87,18 +88,6 @@ main =
               renderSVG "output.svg" sizeSpec (scale 50 (drawSolution rows cols xs))
               putStrLn "Solution saved to output.svg"
 
-------------------------------------------------------------------------
--- Boolean helpers
-------------------------------------------------------------------------
-
--- | Returns a summary value of where a boolean is true in exactly
--- one position in the list.
-exactlyOne :: Boolean a => [a] -> a
-exactlyOne xs = allCovered && nor overlaps
-  where
-  (allCovered, overlaps) = mapAccumL addMask false xs
-
-  addMask covered mask = (covered || mask, covered && mask)
 
 ------------------------------------------------------------------------
 -- Solution rendering
