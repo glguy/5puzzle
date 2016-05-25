@@ -1,4 +1,11 @@
-module SparseMap (SparseMap(..), trueList, falseList, index, insert, constant) where
+module SparseMap
+  (SparseMap(..)
+  , trueList
+  , falseList
+  , fromList
+  , index
+  , insert
+  , constant) where
 
 import Ersatz
 import FromBit
@@ -26,6 +33,9 @@ instance Ord k => Applicative (SparseMap k) where
                   (($ x) <$>)
                   (f <$>)
                   fs xs
+
+fromList :: Ord k => v -> [(k,v)] -> SparseMap k v
+fromList def xs = SparseMap (Map.fromList xs) def
 
 trueList :: (Boolean v, Ord k) => [k] -> SparseMap k v
 trueList xs = SparseMap (Map.fromList [ (x,true) | x <- xs ]) false

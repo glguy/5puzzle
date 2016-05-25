@@ -119,7 +119,7 @@ main =
 -- predicate for this puzzle.
 problem :: [V2 Int] -> [Piece] -> M [Select Piece]
 problem board pieces =
-  do choices <- traverse (select . placements board) pieces
+  do choices <- traverse (selectList . placements board) pieces
      assert (choicePredicate board choices)
      return choices
 

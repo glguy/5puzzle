@@ -1,6 +1,5 @@
 module Main where
 
-
 import Ersatz
 import SparseMap
 import Select
@@ -46,7 +45,7 @@ boardLocations rows cols =
   bottomRight = V2 (rows-1) (cols-1)
 
 boardPieces :: (MonadState s m, HasSAT s) => Int -> Int -> m [Select Piece]
-boardPieces rows cols = traverse (select . piecesAt) (boardLocations rows cols)
+boardPieces rows cols = traverse (selectList . piecesAt) (boardLocations rows cols)
 
 piecesAt :: Coord -> [Piece]
 piecesAt c@(V2 row col) = [ noPiece , horizPiece , vertPiece ]

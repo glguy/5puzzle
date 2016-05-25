@@ -12,7 +12,7 @@ import Control.Monad.State
 import Data.Traversable (for)
 import Data.List (tails)
 import Linear (V2(V2))
-import Prelude hiding (not,or,all,(&&),(||))
+import Prelude hiding (and,any,not,or,all,(&&),(||))
 
 import Ersatz
 
@@ -25,9 +25,10 @@ import SparseMap
 -- Problem representation
 ------------------------------------------------------------------------
 
-data Suit = Heart | Spade | Club | Diamond deriving Show
-data Parity = Out | In                     deriving Show
-data Side = Side Parity Suit               deriving Show
+data Suit = Heart | Spade | Club | Diamond deriving (Eq, Show)
+data Parity = Out | In                     deriving (Eq, Show)
+data Side = Side Parity Suit               deriving (Eq, Show)
+
 
 type Piece = [ Side ]
 
@@ -57,7 +58,7 @@ edges :: [V2 Int]
 edges = [ {-==-} V2 0 1, {-==-}  V2 0 3 {-==-}
         , V2 1 0       , V2 1 2,        V2 1 4
         , {-==-} V2 2 1, {-==-}  V2 2 3 {-==-}
-        , V2 3 0       , V2 3 2,        V2 1 4
+        , V2 3 0       , V2 3 2,        V2 3 4
         , {-==-} V2 4 1, {-==-}  V2 4 3 {-==-}
         ]
 
@@ -117,16 +118,72 @@ sequence2 (x,y) = liftA2 (,) x y
 -- Solution generation
 ------------------------------------------------------------------------
 
+assignments :: (MonadState s m, HasSAT s) => m [(Select (V2 Int), Select Piece)]
+assignments =
+  do let p1:ps = pieces
+     loc1 <- selectList locations
+     xs   <- for ps $ \p ->
+               do loc    <- selectList locations
+                  piece' <- selectList (rotations p)
+                  return (loc, piece')
+     -- avoids rotating the first piece
+     return ( (loc1, pure p1) : xs )
+
 problem :: (MonadState s m, HasSAT s) => m [(Select (V2 Int), Select Piece)]
-problem =
-  do xs <- for pieces $ \piece ->
-              do loc    <- select locations
-                 piece' <- select (rotations piece)
-                 return (loc, piece')
-     assert (validatePlacements xs)
-     return xs
+problem = assignments `checking` validatePlacements
+
+sameSolution :: [(Select (V2 Int), Select Piece)] -> [(V2 Int, Piece)] -> Bit
+sameSolution xs ys = and (zipWith aux1 xs ys)
+  where
+  aux1 (loc1, rot1) (loc2, rot2) = sameEq loc1 loc2 && sameEq rot1 rot2
+
+sameEq :: Eq a => Select a -> a -> Bit
+sameEq xs y = runSelectWith (\x -> bool (x == y)) xs
+
 
 main :: IO ()
-main =
-  do (Satisfied, Just sol) <- solveWith minisat problem
-     mapM_ print sol
+main = solutions 1 []
+
+solutions :: Int -> [[(V2 Int, Piece)]] -> IO ()
+solutions i prevs =
+  do res <- solveWith minisat $
+                problem `checking` \xs ->
+                   not (any (sameSolution xs) prevs)
+     case res of
+       (Satisfied, Just sol) -> do print i
+                                   putStr (render sol)
+                                   solutions (i+1) (sol : prevs)
+       _ -> putStrLn "End of solutions"
+
+------------------------------------------------------------------------
+-- Rendering
+------------------------------------------------------------------------
+
+
+suitChar :: Suit -> Char
+suitChar s = case s of
+               Heart   -> '♡'
+               Spade   -> '♤'
+               Club    -> '♧'
+               Diamond -> '♢'
+
+rotationChar :: [Side] -> Char
+rotationChar [Side Out _, Side Out _, Side In  _, Side In  _] = '┗'
+rotationChar [Side In  _, Side Out _, Side Out _, Side In  _] = '┏'
+rotationChar [Side In  _, Side In  _, Side Out _, Side Out _] = '┓'
+rotationChar [Side Out _, Side In  _, Side In  _, Side Out _] = '┛'
+
+render :: [(V2 Int, Piece)] -> String
+render xs = unlines [ [ index (V2 row col) m | col <- [-1 .. 5] ] | row <- [-1 .. 5] ]
+  where
+  m = renderMap xs
+
+renderMap :: [(V2 Int, Piece)] -> SparseMap (V2 Int) Char
+renderMap pieces = fromList ' ' $
+  [ (loc1, suitChar suit)
+  | (loc, suits) <- pieces
+  , (loc1, Side _ suit) <- zip (edgeCoords loc) suits
+  ] ++
+  [ (loc, rotationChar suits)
+  | (loc, suits) <- pieces
+  ]
