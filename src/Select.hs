@@ -36,8 +36,8 @@ runSelect s = or (aux true s [])
     aux (sel && not b) x (aux (sel && b) y z)
 
 -- This is cleaner but it seems to run more slowly, presumably
--- due to doing more of the operations at 'a' instead of doing
--- them on 'Bit'
+-- due to doing more of the boolean operations at 'a' instead of doing
+-- them at 'Bit'
 -- runSelect :: FromBit a => Select a -> a
 -- runSelect (Selected x)   = x
 -- runSelect (Choice b x y) = choose (runSelect x) (runSelect y) (fromBit b)
