@@ -59,10 +59,8 @@ piecesAt c@(V2 row col) = [ noPiece , horizPiece , vertPiece ]
 ------------------------------------------------------------------------
 
 problem :: (MonadState s m, HasSAT s) => Int -> Int -> m [Select Piece]
-problem rows cols =
-  do pieces <- boardPieces rows cols
-     assert (validArrangement rows cols pieces)
-     return pieces
+problem rows cols = boardPieces rows cols
+         `checking` validArrangement rows cols
 
 validArrangement :: Int -> Int -> [Select Piece] -> Bit
 validArrangement rows cols pieces = isTrue validLocations

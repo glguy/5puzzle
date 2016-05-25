@@ -118,10 +118,8 @@ main =
 -- | Select an arrangement of the pieces that satisfies the covering
 -- predicate for this puzzle.
 problem :: [V2 Int] -> [Piece] -> M [Select Piece]
-problem board pieces =
-  do choices <- traverse (selectList . placements board) pieces
-     assert (choicePredicate board choices)
-     return choices
+problem board pieces = traverse (selectList . placements board) pieces
+            `checking` choicePredicate board
 
 -- | A choice is valid when every location on the board is covered exactly once
 choicePredicate :: [V2 Int] -> [Select Piece] -> Bit
