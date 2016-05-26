@@ -43,7 +43,7 @@ parsePiece xs = Piece [ V2 rowIx colIx
 -- Piece manipulation
 
 translatePiece :: V2 Int -> Piece -> Piece
-translatePiece o (Piece xs) = Piece (liftA2 (+) o <$> xs)
+translatePiece o (Piece xs) = Piece ((+ o) <$> xs)
 
 -- | Translate a piece such that it's minimum row and column
 -- are at index 0.
@@ -63,7 +63,7 @@ normalizePiece (Piece xs) = Piece (sort xs)
 placements :: [V2 Int] -> Piece -> [Piece]
 placements board p = translatePiece <$> offsets <*> orientations p
   where
-  offsets = V2 <$> [xlo .. xhi] <*> [ylo .. yhi]
+  offsets = liftA2 V2 [xlo .. xhi] [ylo .. yhi]
   V2 xlo ylo = foldl1 (liftA2 min) board
   V2 xhi yhi = foldl1 (liftA2 max) board
 
