@@ -8,9 +8,13 @@
 module Main where
 
 import Control.Applicative (liftA2)
+import Control.Monad (replicateM)
 import Data.Traversable (for)
+import Data.Foldable (toList)
 import Data.List (tails)
 import Linear (V2(V2))
+import           Data.Map (Map)
+import qualified Data.Map as Map
 import Prelude hiding (and,any,not,or,all,(&&),(||))
 
 import Ersatz
@@ -46,8 +50,8 @@ pieces =
   where
   piece w x y z = [Side Out w, Side Out x, Side In y, Side In z]
 
-rotations :: Piece -> [Piece]
-rotations = map (take 4) . take 4 . tails . cycle
+rotateList :: Int -> [a] -> [a]
+rotateList i xs = zipWith const (drop i (cycle xs)) xs
 
 locations :: [V2 Int]
 locations = liftA2 V2 [0,2,4] [0,2,4]
@@ -84,75 +88,39 @@ encodeSide (Side x y) =
     Spade   -> Bit3 false true  false
     Diamond -> Bit3 false true  true
 
-encodePlacementSelect :: Select (V2 Int, Piece) -> SparseMap (V2 Int) Bit3
-encodePlacementSelect =
-  runSelectWith $ \(loc, sides) ->
-       foldr (uncurry SparseMap.insert) false
-     $ zip (edgeCoords loc)
-     $ map encodeSide sides
-
-encodeCenters :: Select (V2 Int) -> SparseMap (V2 Int) Bit
-encodeCenters = runSelectWith $ \loc -> trueList [loc]
-
-------------------------------------------------------------------------
--- Problem predicate
-------------------------------------------------------------------------
-
--- Assignments of puzzles pieces are valid when all 9 cells are
--- covered exactly once, each interesting edge bit is covered exactly once,
--- and all other locations are ignored.
-validatePlacements :: [(Select (V2 Int), Select Piece)] -> Bit
-validatePlacements xs = isTrue valid
-  where
-  validEdges   = exactlyOne (encodePlacementSelect . sequence2 <$> xs)
-  validCenters = exactlyOne (encodeCenters         . fst       <$> xs)
-  outside      = falseList  (edges ++ locations)
-
-  valid        = fmap isTrue validEdges || validCenters || outside
-
-sequence2 :: Applicative f => (f x, f y) -> f (x, y)
-sequence2 (x,y) = liftA2 (,) x y
+encodePlacementSelect ::
+  V2 Int -> Select Piece -> SparseMap (V2 Int) Bit3
+encodePlacementSelect loc
+  = runSelectWith
+  $ fromList false
+  . zip (edgeCoords loc)
+  . map encodeSide
 
 ------------------------------------------------------------------------
 -- Solution generation
 ------------------------------------------------------------------------
 
-assignments :: MonadSAT s m => m [(Select (V2 Int), Select Piece)]
+assignments :: MonadSAT s m => m (Map (V2 Int) (Select Int, Select Piece))
 assignments =
-  do let p1:ps = pieces
-     loc1 <- selectList locations
-     xs   <- for ps $ \p ->
-               do loc    <- selectList locations
-                  piece' <- selectList (rotations p)
-                  return (loc, piece')
-     -- avoids rotating the first piece
-     return ( (loc1, pure p1) : xs )
+  do ps   <- selectPermutation pieces
+     rots <- replicateM 9 (selectList [0..3])
+     return (Map.fromList (zip locations (zip rots ps)))
 
-problem :: MonadSAT s m => m [(Select (V2 Int), Select Piece)]
-problem = assignments `checking` validatePlacements
-
-sameSolution :: [(Select (V2 Int), Select Piece)] -> [(V2 Int, Piece)] -> Bit
-sameSolution xs ys = and (zipWith aux1 xs ys)
-  where
-  aux1 (loc1, rot1) (loc2, rot2) = sameEq loc1 loc2 && sameEq rot1 rot2
-
-sameEq :: Eq a => Select a -> a -> Bit
-sameEq xs y = runSelectWith (\x -> bool (x == y)) xs
-
+problem :: MonadSAT s m => m (Map (V2 Int) (Select Piece))
+problem =
+  do xs <- assignments
+     let xs' = uncurry (liftA2 rotateList) <$> xs
+     assert $ isTrue
+            $ trueList edges ==>
+              exactlyOne (Map.mapWithKey encodePlacementSelect xs')
+     return xs'
 
 main :: IO ()
-main = solutions 1 []
-
-solutions :: Int -> [[(V2 Int, Piece)]] -> IO ()
-solutions i prevs =
-  do res <- solveWith minisat $
-                problem `checking` \xs ->
-                   not (any (sameSolution xs) prevs)
+main =
+  do res <- solveWith minisat problem
      case res of
-       (Satisfied, Just sol) -> do print i
-                                   putStr (render sol)
-                                   solutions (i+1) (sol : prevs)
-       _ -> putStrLn "End of solutions"
+       (Satisfied, Just sol) -> putStr (render (Map.toList sol))
+       _                     -> putStrLn "End of solutions"
 
 ------------------------------------------------------------------------
 -- Rendering

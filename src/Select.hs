@@ -8,9 +8,11 @@ module Select
   , mergeSelects
   , foldSelect
   , selectEq
+  , selectPermutation
   ) where
 
 import Ersatz
+import Booleans
 import FromBit
 import Data.Maybe
 import Data.List (findIndex)
@@ -18,7 +20,7 @@ import Data.List.NonEmpty
 import Data.Semigroup
 import Control.Applicative
 import Control.Monad.State
-import Prelude hiding (and, or, (&&), (||) ,not)
+import Prelude hiding (any, and, or, (&&), (||) ,not)
 
 -- | A set of choices and an index of the chosen element of that set
 data Select a = Selected a | Choice Bit (Select a) (Select a)
@@ -100,3 +102,25 @@ selectEq xs ys = runSelect (liftA2 (\x y -> bool (x == y)) xs ys)
 
 instance Equatable a => Equatable (Select a) where
   x === y = runSelect (liftA2 (===) x y)
+
+selectPermutation :: MonadSAT s m => [a] -> m [Select a]
+selectPermutation xs =
+  do ys <- traverse (\_ -> selectList xs) xs
+
+     let aux [] = false
+         aux (z:zs) = any (internalSamePath z) zs
+
+     assert (not (any aux (tails ys)))
+     return ys
+
+  where
+  -- This comparison is unsafe in general but works because of how selectList
+  -- generates its bits for the choice elements! This relies on the fact
+  -- that selectList creates a full-tree and that it reuses the same bit
+  -- for all nodes at the same level.
+  internalSamePath :: Select a -> Select a -> Bit
+  internalSamePath x y = internalExtactBits x === internalExtactBits y
+
+  internalExtactBits :: Select a -> [Bit]
+  internalExtactBits (Choice b l _) = b : internalExtactBits l
+  internalExtactBits Selected{}     = []
