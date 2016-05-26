@@ -4,9 +4,8 @@ module Main where
 
 import Ersatz
 import Booleans
-import Control.Monad.State
 import Control.Applicative
-import Data.List (tails)
+import Control.Monad (replicateM)
 import GHC.Generics
 import Prelude hiding (not, all, and, (&&), (||))
 
@@ -66,22 +65,16 @@ match3 x y z = same || different
   same      = x === y && y === z && x === z
   different = x /== y && y /== z && x /== z
 
-uniques :: Equatable a => [a] -> Bit
-uniques xs = nor
-           $ do y:ys <- tails xs
-                z    <- ys
-                return (y === z)
-
 goodSet :: (SCard, SCard, SCard) -> Bit
 goodSet (c1,c2,c3) =
   and [aux scardColor, aux scardShape, aux scardCount, aux scardFill]
   where
   aux sel = match3 (sel c1) (sel c2) (sel c3)
 
-problem :: (HasSAT s, MonadState s m) => m [(SCard, SCard, SCard)]
+problem :: MonadSAT s m => m [(SCard, SCard, SCard)]
 problem =
   do cards <- replicateM 81 exists
-     assert (uniques cards)
+     assert (unique cards)
 
      let sets = threes cards
      assert (all goodSet sets)

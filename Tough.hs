@@ -8,7 +8,6 @@
 module Main where
 
 import Control.Applicative (liftA2)
-import Control.Monad.State
 import Data.Traversable (for)
 import Data.List (tails)
 import Linear (V2(V2))
@@ -118,7 +117,7 @@ sequence2 (x,y) = liftA2 (,) x y
 -- Solution generation
 ------------------------------------------------------------------------
 
-assignments :: (MonadState s m, HasSAT s) => m [(Select (V2 Int), Select Piece)]
+assignments :: MonadSAT s m => m [(Select (V2 Int), Select Piece)]
 assignments =
   do let p1:ps = pieces
      loc1 <- selectList locations
@@ -129,7 +128,7 @@ assignments =
      -- avoids rotating the first piece
      return ( (loc1, pure p1) : xs )
 
-problem :: (MonadState s m, HasSAT s) => m [(Select (V2 Int), Select Piece)]
+problem :: MonadSAT s m => m [(Select (V2 Int), Select Piece)]
 problem = assignments `checking` validatePlacements
 
 sameSolution :: [(Select (V2 Int), Select Piece)] -> [(V2 Int, Piece)] -> Bit

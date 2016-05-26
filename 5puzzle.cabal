@@ -39,8 +39,7 @@ executable Domino
                        diagrams-lib >=1.3  && <1.4 ,
                        diagrams-svg >=1.4  && <1.5 ,
                        ersatz       >=0.3  && <0.4 ,
-                       linear       >=1.20 && <1.21,
-                       mtl          >=2.2  && <2.3
+                       linear       >=1.20 && <1.21
 
 executable Pentomino
   main-is:             Pentomino.hs
@@ -63,8 +62,7 @@ executable Tough
   build-depends:       5puzzle,
                        base         >=4.8  && <4.9 ,
                        ersatz       >=0.3  && <0.4 ,
-                       linear       >=1.20 && <1.21,
-                       mtl          >=2.2  && <2.3
+                       linear       >=1.20 && <1.21
 
 executable SetGame
   main-is:             SetGame.hs
@@ -72,5 +70,14 @@ executable SetGame
   default-language:    Haskell2010
   build-depends:       5puzzle,
                        base         >=4.8  && <4.9 ,
+                       ersatz       >=0.3  && <0.4
+
+executable Sudoku
+  main-is:             Sudoku.hs
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  build-depends:       5puzzle,
+                       base         >=4.8  && <4.9 ,
                        ersatz       >=0.3  && <0.4 ,
-                       mtl          >=2.2  && <2.3
+                       linear       >=1.20 && <1.21,
+                       containers   >=0.5  && <0.6

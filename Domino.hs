@@ -8,7 +8,6 @@ import Booleans
 import Data.List ((\\), mapAccumL)
 import Prelude hiding ((&&), (||), or, not)
 
-import Control.Monad.State (MonadState)
 import System.Environment
 
 import Diagrams.Prelude (Diagram, lw, translate, square, ultraThick, scale, fromVertices, mkSizeSpec)
@@ -44,7 +43,7 @@ boardLocations rows cols =
   topLeft     = V2 0 0
   bottomRight = V2 (rows-1) (cols-1)
 
-boardPieces :: (MonadState s m, HasSAT s) => Int -> Int -> m [Select Piece]
+boardPieces :: MonadSAT s m => Int -> Int -> m [Select Piece]
 boardPieces rows cols = traverse (selectList . piecesAt) (boardLocations rows cols)
 
 piecesAt :: Coord -> [Piece]
@@ -58,7 +57,7 @@ piecesAt c@(V2 row col) = [ noPiece , horizPiece , vertPiece ]
 -- Problem definition
 ------------------------------------------------------------------------
 
-problem :: (MonadState s m, HasSAT s) => Int -> Int -> m [Select Piece]
+problem :: MonadSAT s m => Int -> Int -> m [Select Piece]
 problem rows cols = boardPieces rows cols
          `checking` validArrangement rows cols
 
