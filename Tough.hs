@@ -13,8 +13,6 @@ import Data.Traversable (for)
 import Data.Foldable (toList)
 import Data.List (tails)
 import Linear (V2(V2))
-import           Data.Map (Map)
-import qualified Data.Map as Map
 import Prelude hiding (and,any,not,or,all,(&&),(||))
 
 import Ersatz
@@ -100,26 +98,24 @@ encodePlacementSelect loc
 -- Solution generation
 ------------------------------------------------------------------------
 
-assignments :: MonadSAT s m => m (Map (V2 Int) (Select Int, Select Piece))
+assignments :: MonadSAT s m => m [Select Piece]
 assignments =
-  do ps   <- selectPermutation pieces
-     rots <- replicateM 9 (selectList [0..3])
-     return (Map.fromList (zip locations (zip rots ps)))
+  do ps <- selectPermutation pieces
+     for ps $ \p ->
+        do rot <- selectList [0..3]
+           return (liftA2 rotateList rot p)
 
-problem :: MonadSAT s m => m (Map (V2 Int) (Select Piece))
-problem =
-  do xs <- assignments
-     let xs' = uncurry (liftA2 rotateList) <$> xs
-     assert $ isTrue
-            $ trueList edges ==>
-              exactlyOne (Map.mapWithKey encodePlacementSelect xs')
-     return xs'
+problem :: MonadSAT s m => m [Select Piece]
+problem = assignments
+          `checking` \xs ->
+              isTrue (trueList edges ==>
+                      exactlyOne (zipWith encodePlacementSelect locations xs))
 
 main :: IO ()
 main =
   do res <- solveWith minisat problem
      case res of
-       (Satisfied, Just sol) -> putStr (render (Map.toList sol))
+       (Satisfied, Just sol) -> putStr (render sol)
        _                     -> putStrLn "End of solutions"
 
 ------------------------------------------------------------------------
@@ -140,10 +136,11 @@ rotationChar [Side In  _, Side Out _, Side Out _, Side In  _] = '┏'
 rotationChar [Side In  _, Side In  _, Side Out _, Side Out _] = '┓'
 rotationChar [Side Out _, Side In  _, Side In  _, Side Out _] = '┛'
 
-render :: [(V2 Int, Piece)] -> String
-render xs = unlines [ [ index (V2 row col) m | col <- [-1 .. 5] ] | row <- [-1 .. 5] ]
+render :: [Piece] -> String
+render xs = unlines [ [ index (V2 row col) m | col <- [-1 .. 5] ]
+                    | row <- [-1 .. 5] ]
   where
-  m = renderMap xs
+  m = renderMap (zip locations xs)
 
 renderMap :: [(V2 Int, Piece)] -> SparseMap (V2 Int) Char
 renderMap pieces = fromList ' ' $
