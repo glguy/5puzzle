@@ -9,14 +9,15 @@ module Select
   , foldSelect
   , selectEq
   , selectPermutation
+  , selectPermutationN
   ) where
 
 import Ersatz
 import Booleans
 import FromBit
 import Data.Maybe
-import Data.List (findIndex)
-import Data.List.NonEmpty
+import Data.List (findIndex, tails)
+import Data.List.NonEmpty (NonEmpty(..))
 import Data.Semigroup
 import Control.Applicative
 import Control.Monad.State
@@ -104,8 +105,14 @@ instance Equatable a => Equatable (Select a) where
   x === y = runSelect (liftA2 (===) x y)
 
 selectPermutation :: MonadSAT s m => [a] -> m [Select a]
-selectPermutation xs =
-  do ys <- traverse (\_ -> selectList xs) xs
+selectPermutation xs = selectPermutationN (length xs) xs
+
+selectPermutationN :: MonadSAT s m => Int -> [a] -> m [Select a]
+selectPermutationN n xs
+  | n < 0 || length xs < n = error "selectPermutationN: n out of range"
+  | otherwise =
+
+  do ys <- replicateM n (selectList xs)
 
      let aux [] = false
          aux (z:zs) = any (internalSamePath z) zs
