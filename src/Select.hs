@@ -18,6 +18,7 @@ import FromBit
 import Data.Maybe
 import Data.List (findIndex, tails)
 import Data.List.NonEmpty (NonEmpty(..))
+import Data.Traversable (foldMapDefault)
 import Data.Semigroup
 import Control.Applicative
 import Control.Monad.State
@@ -87,6 +88,14 @@ instance Monad Select where
   Selected x   >>= f = f x
   Choice b x y >>= f = Choice b (x >>= f) (y >>= f)
 
+
+instance Foldable Select where
+  foldMap = foldMapDefault
+
+instance Traversable Select where
+  traverse f (Selected x) = Selected <$> f x
+  traverse f (Choice b l r) = Choice b <$> traverse f l <*> traverse f r
+
 newtype SelectBuilder s f a = SB { runSelectBuilder :: f (Select a) }
 
 instance (HasSAT s, MonadState s m) => Semigroup (SelectBuilder s m a) where
@@ -113,11 +122,9 @@ selectPermutationN n xs
   | otherwise =
 
   do ys <- replicateM n (selectList xs)
-
-     let aux [] = false
-         aux (z:zs) = any (internalSamePath z) zs
-
-     assert (not (any aux (tails ys)))
+     assert $ nor [ y === z
+                  | y:zs <- tails (map internalExtactBits ys)
+                  , z    <- zs ]
      return ys
 
   where
@@ -125,9 +132,6 @@ selectPermutationN n xs
   -- generates its bits for the choice elements! This relies on the fact
   -- that selectList creates a full-tree and that it reuses the same bit
   -- for all nodes at the same level.
-  internalSamePath :: Select a -> Select a -> Bit
-  internalSamePath x y = internalExtactBits x === internalExtactBits y
-
   internalExtactBits :: Select a -> [Bit]
   internalExtactBits (Choice b l _) = b : internalExtactBits l
   internalExtactBits Selected{}     = []
