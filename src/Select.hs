@@ -10,6 +10,7 @@ module Select
   , selectEq
   , selectPermutation
   , selectPermutationN
+  , unsafeUniqueSelects
   ) where
 
 import Ersatz
@@ -18,7 +19,7 @@ import FromBit
 import Data.Maybe
 import Data.List (findIndex, tails)
 import Data.List.NonEmpty (NonEmpty(..))
-import Data.Traversable (foldMapDefault)
+import Data.Traversable (foldMapDefault, mapAccumL)
 import Data.Semigroup
 import Control.Applicative
 import Control.Monad.State
@@ -26,6 +27,7 @@ import Prelude hiding (any, and, or, (&&), (||) ,not)
 
 -- | A set of choices and an index of the chosen element of that set
 data Select a = Selected a | Choice Bit (Select a) (Select a)
+  deriving Show
 
 -- | Symbolic selection from a non-empty list of alternatives.
 selectList :: (MonadState s m, HasSAT s) => [a] -> m (Select a)
@@ -122,16 +124,17 @@ selectPermutationN n xs
   | otherwise =
 
   do ys <- replicateM n (selectList xs)
-     assert $ nor [ y === z
-                  | y:zs <- tails (map internalExtactBits ys)
-                  , z    <- zs ]
+     assert (unsafeUniqueSelects ys)
      return ys
 
+-- | This function is only intended to be used to two Select
+-- values that were constructed in the exact same fashion.
+-- It compares the internal locations of the select, not the
+-- actual values.
+unsafeUniqueSelects :: [Select a] -> Bit
+unsafeUniqueSelects ys =
+  nor [ selectEq y z
+      | y:zs <- tails (map renumber ys)
+      , z    <- zs ]
   where
-  -- This comparison is unsafe in general but works because of how selectList
-  -- generates its bits for the choice elements! This relies on the fact
-  -- that selectList creates a full-tree and that it reuses the same bit
-  -- for all nodes at the same level.
-  internalExtactBits :: Select a -> [Bit]
-  internalExtactBits (Choice b l _) = b : internalExtactBits l
-  internalExtactBits Selected{}     = []
+  renumber = snd . mapAccumL (\i _ -> (i+1,i)) (0 :: Int)
