@@ -1,12 +1,12 @@
 {-# Language ConstraintKinds #-}
 
-module Booleans (MonadSAT, unique, checking, isTrue, exactlyOne) where
+module Booleans (MonadSAT, coverOne, unique, checking, isTrue, exactlyOne) where
 
 import Ersatz
 import Data.List (tails, mapAccumL)
 import Data.Foldable (toList)
 import Control.Monad.State (MonadState)
-import Prelude hiding (all, (&&), (||))
+import Prelude hiding (not, all, (&&), (||))
 
 -- | Returns a summary value of where a boolean is true in exactly
 -- one position in the list.
@@ -33,3 +33,9 @@ unique = all unique1 . tails . toList
   where
   unique1 []     = true
   unique1 (y:ys) = all (/==y) ys
+
+-- | Returns a summary value of where a boolean is true in exactly
+-- one position in the list.
+coverOne :: (Equatable a, Boolean a) => a -> [a] -> Bit
+coverOne mask []     = mask === false
+coverOne mask (x:xs) = false === (not mask && x) && coverOne (mask && not x) xs

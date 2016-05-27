@@ -65,9 +65,3 @@ main :: IO ()
 main =
   do res <- solveWith minisat solution :: IO (Result, Maybe [Piece])
      print res
-
--- | Returns a summary value of where a boolean is true in exactly
--- one position in the list.
-coverOne :: (Equatable a, Boolean a) => a -> [a] -> Bit
-coverOne mask []     = mask === false
-coverOne mask (x:xs) = false === (not mask && x) && coverOne (mask && not x) xs
