@@ -9,7 +9,7 @@ import Control.Applicative
 import Data.List (nub, permutations)
 import Data.Traversable (for)
 import Control.Monad
-import Prelude hiding (any,or,not)
+import Prelude hiding ((&&), (||), not, all, any,or,not)
 
 data Piece = Piece Int Int Int    deriving (Eq, Show)
 type Coord = V3 Int
@@ -48,7 +48,7 @@ solution  =
                 let pcov = runSelectWith (cover loc) po
                 return (p,po,pcov))
 
-     assert $ isTrue $ exactlyOne (falseList locations : coverMaps)
+     assert $ coverOne (trueList locations) coverMaps
      assert $ count cube  pieces === 5
      assert $ count thick pieces === 6
      assert $ count flat  pieces === 6
@@ -65,3 +65,9 @@ main :: IO ()
 main =
   do res <- solveWith minisat solution :: IO (Result, Maybe [Piece])
      print res
+
+-- | Returns a summary value of where a boolean is true in exactly
+-- one position in the list.
+coverOne :: (Equatable a, Boolean a) => a -> [a] -> Bit
+coverOne mask []     = mask === false
+coverOne mask (x:xs) = false === (not mask && x) && coverOne (mask && not x) xs
