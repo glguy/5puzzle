@@ -9,6 +9,7 @@ import Control.Applicative
 import Data.List (nub, permutations)
 import Data.Traversable (for)
 import Control.Monad
+import Data.Foldable(for_)
 import Prelude hiding ((&&), (||), not, all, any,or,not)
 
 data Piece = Piece Int Int Int    deriving (Eq, Show)
@@ -63,5 +64,16 @@ count target xs = sumBits [ Bits [eltToBit p] | p <- xs ]
 
 main :: IO ()
 main =
-  do res <- solveWith minisat solution :: IO (Result, Maybe [Piece])
-     print res
+  do (Satisfied, Just res) <- solveWith minisat solution
+     putStrLn "color(\"BurlyWood\",0.8){"
+     for_ (zip locations res) $ \(V3 x y z, piece) ->
+        case piece of
+          Piece 0 0 0 -> return ()
+          Piece dx dy dz ->
+            putStrLn $ "translate(" ++ show (map recenter [x,y,z]) ++ "){"
+                    ++ "cube(" ++ show (map gap [dx,dy,dz]) ++ ");}"
+     putStrLn "}"
+  where
+  gap, recenter :: Int -> Double
+  gap x = fromIntegral x - 0.2
+  recenter x = fromIntegral x - 2.5
