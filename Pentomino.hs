@@ -123,11 +123,11 @@ problem board pieces = traverse (selectList . placements board) pieces
 
 -- | A choice is valid when every location on the board is covered exactly once
 choicePredicate :: [V2 Int] -> [Select Piece] -> Bit
-choicePredicate board choices = isTrue validPositions
+choicePredicate board choices = validPositions
   where
-  boardMask    = falseList board
+  boardMask    = trueList board
   pieceBitMaps = map selectPieceMask choices
-  validPositions = exactlyOne (boardMask : pieceBitMaps)
+  validPositions = coverOne boardMask pieceBitMaps
 
 
 ------------------------------------------------------------------------
