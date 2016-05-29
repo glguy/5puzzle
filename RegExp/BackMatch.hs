@@ -52,7 +52,7 @@ backMatch re inp = or (evalStateT body st0)
   simple Empty       = return true
   simple (Seq _ x y) = liftA2 (&&) x y
   simple (Alt _ x y) = x <|> y
-  simple (Rep m)     = and <$> many m
+  simple (Rep m)     = and <$> many (nonempty m)
 
   simple (OneOf mode xs) =
     do x <- next
@@ -60,6 +60,14 @@ backMatch re inp = or (evalStateT body st0)
        case mode of
          InSet -> return match
          NotInSet -> return (not match)
+
+nonempty :: M a -> M a
+nonempty m =
+  do start <- use position
+     res <- m
+     end   <- use position
+     guard (end > start)
+     return res
 
 withMatched :: M a -> M (a, [Bit8])
 withMatched x =

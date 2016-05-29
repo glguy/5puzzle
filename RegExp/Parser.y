@@ -32,26 +32,30 @@ ALPHA { (check isAlpha -> Just (??)) }
 
 %%
 
+
 regexp :: { RegExpFull Char }
-  : alts { $1    }
-  |      { empty }
+  : regexp '|' regexp01 { $1 ||| $3 }
+  | regexp01            { $1        }
 
-alts : alts '|' seqs { $1 ||| $3 }
-     | seqs          { $1 }
+regexp01
+  : regexp1 { $1    }
+  |         { empty }
 
-seqs : seqs aregexp { $1 >>> $2 }
-     |              { empty }
+regexp1
+  : regexp1 aregexp     { $1 >>> $2 }
+  | aregexp             { $1        }
 
 aregexp
-  : '(' regexp ')' { grouping $2 }
-  | aregexp '*'    { rep $1 }
-  | aregexp '+'    { $1 >>> rep $1 }
-  | aregexp '?'    { $1 ||| empty }
-  | '\\' DIGIT     { backref (digitToInt $2) }
-  | ALPHA          { one $1 }
-  | '.'            { anyone }
-  | '[' letterset ']' { oneOf $2 }
-  | '[' '^' letterset ']' { noneOf $3 }
+  : '(' regexp ')'        { grouping $2             }
+  | aregexp '*'           { rep $1                  }
+  | aregexp '+'           { $1 >>> rep $1           }
+  | aregexp '?'           { $1 ||| empty            }
+  | '\\' DIGIT            { backref (digitToInt $2) }
+  | ALPHA                 { one $1                  }
+  | DIGIT                 { one $1                  }
+  | '.'                   { anyone                  }
+  | '[' letterset ']'     { oneOf $2                }
+  | '[' '^' letterset ']' { noneOf $3               }
 
 letterset :: { String }
   : ALPHA           { [ $1 ]  }

@@ -37,7 +37,7 @@ problem =
   do cells <- sequence $ Map.fromList [ (x, exists) | x <- [minBound .. maxBound] ]
      let r xs reStr = assert (smartMatch re inp)
            where
-           Right re = parseRegExp reStr
+           re = either error id (parseRegExp reStr)
            inp      = map (cells Map.!) xs
 
      r [P00,P01,P02,P03,P04,P05,P06] ".*H.*H.*"
