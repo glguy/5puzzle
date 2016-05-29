@@ -67,15 +67,4 @@ match e (c : cs) = matched s2
   s2 = foldl (\s c1 -> advanceRegS c1 s false) s1 cs
 
 mkRegS :: RegExp a -> RegS a
-mkRegS = go
-  where
-  go r = RegS
-    { matched     = false
-    , expr        = case RegExp.AST.view r of
-                      Empty     -> Empty
-                      OneOf m x -> OneOf m x
-                      Rep p     -> Rep   (go p)
-                      Group b p -> Group b (go p)
-                      Alt b p q -> Alt b (go p) (go q)
-                      Seq b p q -> Seq b (go p) (go q)
-    }
+mkRegS = foldRegExp (RegS false)
