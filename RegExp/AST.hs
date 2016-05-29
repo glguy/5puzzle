@@ -2,9 +2,9 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 module RegExp.AST
-  ( RegF(..), RegExp(..), SetMode(..),
-    empty, one, oneOf, noneOf, anyone, (|||), (>>>), rep, view,
-    grouping, foldRegExp,
+  ( RegF(..), RegExp(..), SetMode(..), RegFullF(..), RegExpFull(..),
+    empty, one, oneOf, noneOf, anyone, (|||), (>>>), rep, backref,
+    grouping, foldRegExp, foldRegExpFull, simplify,
     AcceptsEmpty(..)
   ) where
 
@@ -14,75 +14,118 @@ import Data.Foldable (Foldable)
 data SetMode = InSet | NotInSet
   deriving (Read,Show,Eq,Ord)
 
-data RegF a r
+data RegF e a r
   = Empty
   | OneOf SetMode [a]
   | Rep r
-  | Group Bool r
-  | Alt Bool r r -- the Bool caches if accept empty
-  | Seq Bool r r -- ditto
+  | Alt e r r -- the Bool caches if accept empty
+  | Seq e r r -- ditto
     deriving (Read,Show,Functor,Foldable,Traversable)
 
+-- | This type adds additional support for backreferences to
+-- a regular expression
+data RegFullF a r
+  = RegF (RegF () a r)
+  | Group r
+  | BackRef Int
+    deriving (Read,Show,Functor,Foldable,Traversable)
 
 class AcceptsEmpty t where
   acceptsEmpty :: t -> Bool
 
-instance AcceptsEmpty (RegF a r) where
+instance AcceptsEmpty Bool where acceptsEmpty = id
+
+instance AcceptsEmpty e => AcceptsEmpty (RegF e a r) where
   acceptsEmpty r =
     case r of
       Empty     -> True
       OneOf {}  -> False
       Rep {}    -> True
-      Group b _ -> b
-      Alt b _ _ -> b
-      Seq b _ _ -> b
+      Alt b _ _ -> acceptsEmpty b
+      Seq b _ _ -> acceptsEmpty b
 
 
-newtype RegExp a = RE (RegF a (RegExp a))
+newtype RegExp a = RE (RegF Bool a (RegExp a))
                       deriving (Read,Show)
 
+newtype RegExpFull a = REF (RegFullF a (RegExpFull a))
+                      deriving (Read,Show)
+
+instance Functor RegExpFull where
+  fmap f (REF r) = REF (mapRegFullF f r)
+
+mapRegFullF :: Functor f => (a -> b) -> RegFullF a (f a) -> RegFullF b (f b)
+mapRegFullF f r =
+    case r of
+      Group a   -> Group (fmap f a)
+      BackRef i -> BackRef i
+      RegF a    -> RegF (mapRegF f a)
+
 instance Functor RegExp where
-  fmap f r = RE $
-    case view r of
+  fmap f (RE r) = RE (mapRegF f r)
+
+mapRegF :: Functor f => (a -> b) -> RegF e a (f a) -> RegF e b (f b)
+mapRegF f r =
+    case r of
       Empty     -> Empty
       OneOf m x -> OneOf m (map f x)
       Rep p     -> Rep (fmap f p)
-      Group b p -> Group b (fmap f p)
       Alt b p q -> Alt b (fmap f p) (fmap f q)
       Seq b p q -> Seq b (fmap f p) (fmap f q)
 
-foldRegExp :: (RegF a r -> r) -> RegExp a -> r
+foldRegExp :: (RegF Bool a r -> r) -> RegExp a -> r
 foldRegExp f (RE x) = f (fmap (foldRegExp f) x)
+
+foldRegExpFull :: (RegFullF a r -> r) -> RegExpFull a -> r
+foldRegExpFull f (REF x) = f (fmap (foldRegExpFull f) x)
 
 instance AcceptsEmpty (RegExp a) where
   acceptsEmpty (RE e) = acceptsEmpty e
 
-empty    :: RegExp a
-empty     = RE Empty
+simple = REF . RegF
 
-one      :: a -> RegExp a
-one a     = RE (OneOf InSet [a])
+empty    :: RegExpFull a
+empty     = simple Empty
 
-oneOf    :: [a] -> RegExp a
-oneOf xs  = RE (OneOf InSet xs)
+one      :: a -> RegExpFull a
+one a     = simple (OneOf InSet [a])
 
-noneOf   :: [a] -> RegExp a
-noneOf xs = RE (OneOf NotInSet xs)
+oneOf    :: [a] -> RegExpFull a
+oneOf xs  = simple (OneOf InSet xs)
 
-anyone   :: RegExp a
+noneOf   :: [a] -> RegExpFull a
+noneOf xs = simple (OneOf NotInSet xs)
+
+anyone   :: RegExpFull a
 anyone    = noneOf []
 
-(|||)    :: RegExp a -> RegExp a -> RegExp a
-r1 ||| r2 = RE (Alt (acceptsEmpty r1 || acceptsEmpty r2) r1 r2)
+(|||)    :: RegExpFull a -> RegExpFull a -> RegExpFull a
+r1 ||| r2 = simple (Alt () r1 r2)
 
-(>>>)    :: RegExp a -> RegExp a -> RegExp a
-r1 >>> r2 = RE (Seq (acceptsEmpty r1 && acceptsEmpty r2) r1 r2)
+(>>>)    :: RegExpFull a -> RegExpFull a -> RegExpFull a
+r1 >>> r2 = simple (Seq () r1 r2)
 
-rep      :: RegExp a -> RegExp a
-rep r     = RE (Rep r)
+rep      :: RegExpFull a -> RegExpFull a
+rep r     = simple (Rep r)
 
-grouping :: RegExp a -> RegExp a
-grouping r = RE (Group (acceptsEmpty r) r)
+grouping :: RegExpFull a -> RegExpFull a
+grouping r = REF (Group r)
 
-view     :: RegExp a -> RegF a (RegExp a)
-view (RE e) = e
+backref :: Int -> RegExpFull a
+backref i = REF (BackRef i)
+
+simplify :: RegExpFull a -> Maybe (RegExp a)
+simplify = foldRegExpFull $ \r ->
+  case r of
+    Group g   -> g
+    BackRef{} -> Nothing
+    RegF s    -> RE . cacheAcceptsEmpty <$> sequence s
+
+cacheAcceptsEmpty :: AcceptsEmpty r => RegF z a r -> RegF Bool a r
+cacheAcceptsEmpty r =
+  case r of
+    Empty     -> Empty
+    OneOf m x -> OneOf m x
+    Rep p     -> Rep p
+    Alt _ p q -> Alt (acceptsEmpty p || acceptsEmpty q) p q
+    Seq _ p q -> Seq (acceptsEmpty p && acceptsEmpty q) p q

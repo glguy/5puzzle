@@ -12,7 +12,7 @@ import Prelude hiding ((||),(&&),not,any)
 
 import Ersatz
 
-data RegS a = RegS { matched :: Bit, expr :: RegF a (RegS a) }
+data RegS a = RegS { matched :: Bit, expr :: RegF Bool a (RegS a) }
 
 instance AcceptsEmpty (RegS a) where
         acceptsEmpty e = acceptsEmpty (expr e)
@@ -53,10 +53,6 @@ advanceRegS c = update
              let isFirst' = isFirst || matched e
                  s = update e isFirst'
              in RegS { matched = matched s, expr = Rep s }
-
-        Group b e ->
-             let s = update e isFirst
-             in RegS { matched = matched s, expr = Group b s }
 
 match :: Equatable a => RegExp a -> [a] -> Bit
 match e [] = bool (acceptsEmpty e)

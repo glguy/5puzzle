@@ -16,29 +16,16 @@ import qualified Data.Map as Map
 charBit8 :: Char -> Bit8
 charBit8 = encode . toEnum . fromEnum
 
-charBit8br :: Char -> Either Int Bit8
-charBit8br x | isDigit x = Left (digitToInt x)
-             | otherwise = Right (encode (toEnum (fromEnum x)))
-
 -- | Matching using a faster algorithm unless there are backreferences
-smartMatch :: RegExp Char -> [Bit8] -> Bit
-smartMatch regexp
-  | hasBackRefs regexp = backMatch (fmap charBit8br regexp)
-  | otherwise          = match (fmap charBit8 regexp)
-
+smartMatch :: RegExpFull Char -> [Bit8] -> Bit
+smartMatch regexp =
+  let regexp8 = fmap charBit8 regexp in
+  case simplify regexp8 of
+    Just s  -> match s
+    Nothing -> backMatch regexp8
 
 checkLetter :: Bit8 -> Bit
 checkLetter x = charBit8 'A' <=? x && x <=? charBit8 'Z'
-
-hasBackRefs :: RegExp Char -> Bool
-hasBackRefs = foldRegExp $ \r ->
-  case r of
-    Group _ s -> s
-    Rep     s -> s
-    Empty     -> False
-    Alt _ s t -> s || t
-    Seq _ s t -> s || t
-    OneOf _ xs -> any isDigit xs
 
 main :: IO ()
 main =

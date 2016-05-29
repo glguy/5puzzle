@@ -32,7 +32,7 @@ ALPHA { (check isAlpha -> Just (??)) }
 
 %%
 
-regexp :: { RegExp Char }
+regexp :: { RegExpFull Char }
   : alts { $1    }
   |      { empty }
 
@@ -42,12 +42,12 @@ alts : alts '|' seqs { $1 ||| $3 }
 seqs : seqs aregexp { $1 >>> $2 }
      |              { empty }
 
-aregexp :: { RegExp Char }
+aregexp
   : '(' regexp ')' { grouping $2 }
   | aregexp '*'    { rep $1 }
   | aregexp '+'    { $1 >>> rep $1 }
   | aregexp '?'    { $1 ||| empty }
-  | '\\' DIGIT     { one $2 }
+  | '\\' DIGIT     { backref (digitToInt $2) }
   | ALPHA          { one $1 }
   | '.'            { anyone }
   | '[' letterset ']' { oneOf $2 }

@@ -23,48 +23,59 @@ makeLenses ''ParserState
 
 type M = StateT ParserState []
 
-backMatch :: RegExp (Either Int Bit8) -> [Bit8] -> Bit
+backMatch :: RegExpFull Bit8 -> [Bit8] -> Bit
 backMatch re inp = or (evalStateT body st0)
   where
-  body = do res <- foldRegExp aux re
-            []  <- use tokens
+  body = do res <- foldRegExpFull process re
+            []  <- use tokens -- consume full input
             return res
 
-  st0 = ParserState { _tokens = inp
-                    , _position = 0
+  st0 = ParserState { _tokens      = inp
+                    , _position    = 0
                     , _nextGroupId = 0
-                    , _backgroups = Map.empty
+                    , _backgroups  = Map.empty
                     }
 
-  aux Empty = return true
-  aux (Rep m) = and <$> many m
-  aux (OneOf _ [Left d]) = -- hack to identify backrefs
+  process (Group x) =
+    do gid      <- nextGroupId <+= 1
+       (res, g) <- withMatched x
+       backgroups . at gid ?= g
+       return res
+
+  process (BackRef d) =
    do Just g <- use (backgroups . at d)
-      toks   <- tokens %%= splitAt (length g)
-      position += length g
-      guard (length g <= length toks)
+      toks   <- nextN (length g)
       return (toks === g)
-  aux (OneOf mode xs) =
+
+  process (RegF r) = simple r
+
+  simple Empty       = return true
+  simple (Seq _ x y) = liftA2 (&&) x y
+  simple (Alt _ x y) = x <|> y
+  simple (Rep m)     = and <$> many m
+
+  simple (OneOf mode xs) =
     do x <- next
-       let match = any (x ===) (map fromRight xs)
+       let match = any (x ===) xs
        case mode of
          InSet -> return match
          NotInSet -> return (not match)
-  aux (Seq _ x y) = liftA2 (&&) x y
-  aux (Alt _ x y) = x <|> y
-  aux (Group _ x) =
-    do gid <- nextGroupId <+= 1
 
-       pos  <- use position
-       toks <- use tokens
-       res  <- x
-       pos' <- use position
+withMatched :: M a -> M (a, [Bit8])
+withMatched x =
+  do pos  <- use position
+     toks <- use tokens
+     res  <- x
+     pos' <- use position
+     let used = take (pos' - pos) toks
+     return (res, used)
 
-       backgroups . at gid ?= take (pos' - pos) toks
-
-       return res
-
-fromRight (Right x) = x
+nextN :: Int -> M [Bit8]
+nextN n =
+  do toks <- tokens %%= splitAt n
+     position += n
+     guard (n == length toks)
+     return toks
 
 next :: M Bit8
 next =
