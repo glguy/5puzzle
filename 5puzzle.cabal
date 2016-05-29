@@ -90,3 +90,28 @@ executable Cube
                        base         >=4.8  && <4.9 ,
                        ersatz       >=0.3  && <0.4 ,
                        linear       >=1.20 && <1.21
+
+executable Queens
+  main-is:             Queens.hs
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  build-depends:       5puzzle,
+                       base         >=4.8  && <4.9 ,
+                       ersatz       >=0.3  && <0.4
+
+executable RegExp
+  main-is:             RegExp.hs
+  other-modules:       RegExp.AST
+                       RegExp.Match
+                       RegExp.BackMatch
+                       RegExp.Parser
+  build-tools:         alex, happy
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  build-depends:       5puzzle,
+                       base         >=4.8  && <4.9 ,
+                       ersatz       >=0.3  && <0.4,
+                       array        >=0.5  && <0.6,
+                       transformers >=0.4  && <0.6,
+                       containers   >=0.5  && <0.6,
+                       lens         >=4.14 && <4.15
