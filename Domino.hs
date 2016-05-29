@@ -5,7 +5,7 @@ import SparseMap
 import Select
 import Booleans
 
-import Data.List ((\\), mapAccumL)
+import Data.List ((\\))
 import Prelude hiding ((&&), (||), or, not)
 
 import System.Environment
@@ -79,6 +79,7 @@ main =
      case sol of
        (Unsatisfied, _)     -> putStrLn "No solution"
        (Satisfied, Nothing) -> putStrLn "Panic: unable to parse solution"
+       (Unsolved , _      ) -> putStrLn "Solver failed"
        (Satisfied, Just xs) ->
            do let sizeSpec = mkSizeSpec (pure Nothing)
               renderSVG "output.svg" sizeSpec (scale 50 (drawSolution rows cols xs))
@@ -90,12 +91,12 @@ main =
 ------------------------------------------------------------------------
 
 drawSolution :: Int -> Int -> [Piece] -> Diagram B
-drawSolution rows cols ps = grid `mappend` lines ps
+drawSolution rows cols ps = grid `mappend` dominoes ps
   where
   grid = foldMap (\p -> translate (toPoint p) (square 1))
                  (boardLocations rows cols)
 
-  lines =
+  dominoes =
     foldMap $ \(Piece xs) ->
        lw ultraThick
      $ fromVertices (P . toPoint <$> xs)

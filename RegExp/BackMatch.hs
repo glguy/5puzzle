@@ -3,7 +3,6 @@ module RegExp.BackMatch where
 
 import RegExp.AST
 import Control.Monad.Trans.State
-import Control.Monad.Trans.Class
 import Control.Applicative
 import Control.Monad
 import Control.Lens hiding (Empty)
@@ -12,21 +11,21 @@ import qualified Data.Map as Map
 import Prelude hiding ((&&),(||),all,and,any,or,not)
 import Ersatz
 
-data ParserState = ParserState
-  { _tokens :: [Bit8]
+data ParserState a = ParserState
+  { _tokens :: [a]
   , _position :: !Int
   , _nextGroupId :: !Int
-  , _backgroups :: Map Int [Bit8]
+  , _backgroups :: Map Int [a]
   }
 
 makeLenses ''ParserState
 
-type M = StateT ParserState []
+type M a = StateT (ParserState a) []
 
-backMatch :: RegExpFull Bit8 -> [Bit8] -> Bit
-backMatch re inp = or (evalStateT body st0)
+backMatch :: Equatable a => RegExpFull a -> [a] -> Bit
+backMatch regexp inp = or (evalStateT body st0)
   where
-  body = do res <- foldRegExpFull process re
+  body = do res <- foldRegExpFull process regexp
             []  <- use tokens -- consume full input
             return res
 
@@ -47,21 +46,21 @@ backMatch re inp = or (evalStateT body st0)
       toks   <- nextN (length g)
       return (toks === g)
 
-  process (RegF r) = simple r
+  process (RegF r) = process' r
 
-  simple Empty       = return true
-  simple (Seq _ x y) = liftA2 (&&) x y
-  simple (Alt _ x y) = x <|> y
-  simple (Rep m)     = and <$> many (nonempty m)
+  process' Empty       = return true
+  process' (Seq _ x y) = liftA2 (&&) x y
+  process' (Alt _ x y) = x <|> y
+  process' (Rep m)     = and <$> many (nonempty m)
 
-  simple (OneOf mode xs) =
+  process' (OneOf mode xs) =
     do x <- next
        let match = any (x ===) xs
        case mode of
          InSet -> return match
          NotInSet -> return (not match)
 
-nonempty :: M a -> M a
+nonempty :: M t a -> M t a
 nonempty m =
   do start <- use position
      res <- m
@@ -69,7 +68,7 @@ nonempty m =
      guard (end > start)
      return res
 
-withMatched :: M a -> M (a, [Bit8])
+withMatched :: M t a -> M t (a, [t])
 withMatched x =
   do pos  <- use position
      toks <- use tokens
@@ -78,14 +77,14 @@ withMatched x =
      let used = take (pos' - pos) toks
      return (res, used)
 
-nextN :: Int -> M [Bit8]
+nextN :: Int -> M t [t]
 nextN n =
   do toks <- tokens %%= splitAt n
      position += n
      guard (n == length toks)
      return toks
 
-next :: M Bit8
+next :: M t t
 next =
   do x:xs <- use tokens
      tokens .= xs

@@ -3,7 +3,7 @@ module Main where
 import Ersatz
 import Booleans
 import Control.Monad
-import Data.List (tails, transpose, mapAccumL)
+import Data.List (transpose, mapAccumL)
 import System.Environment
 import Prelude hiding (not, (||), (&&), all)
 

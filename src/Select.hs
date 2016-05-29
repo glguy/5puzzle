@@ -17,7 +17,7 @@ import Ersatz
 import Booleans
 import FromBit
 import Data.Maybe
-import Data.List (findIndex, tails)
+import Data.List (tails)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Traversable (foldMapDefault, mapAccumL)
 import Data.Semigroup
@@ -30,26 +30,27 @@ data Select a = Selected a | Choice Bit (Select a) (Select a)
   deriving Show
 
 -- | Symbolic selection from a non-empty list of alternatives.
-selectList :: (MonadState s m, HasSAT s) => [a] -> m (Select a)
+selectList :: MonadSAT s m => [a] -> m (Select a)
 selectList []     = error "selectList: empty list"
 selectList (x:xs) = select (x :| xs)
 {-# SPECIALIZE selectList :: [a] -> StateT SAT IO (Select a) #-}
 
 -- | Symbolic selection from a non-empty list of alternatives.
-select :: (MonadState s m, HasSAT s) => NonEmpty a -> m (Select a)
+select :: MonadSAT s m => NonEmpty a -> m (Select a)
 select = mergeSelects . fmap Selected
 
-mergeSelects :: (MonadState s m, HasSAT s) => NonEmpty (Select a) -> m (Select a)
+mergeSelects :: MonadSAT s m => NonEmpty (Select a) -> m (Select a)
 mergeSelects (x  :| [])      = return x
 mergeSelects (x1 :| x2 : xs) =
   do b   <- exists
      xs' <- reduce xs b
      mergeSelects (Choice b x1 x2 :| xs')
-  where
-  reduce (x1:x2:xs) b =
+
+reduce :: MonadSAT s m => [Select a] -> Bit -> m [Select a]
+reduce (x1:x2:xs) b =
      do xs' <- reduce xs b
         return (Choice b x1 x2 : xs')
-  reduce xs _ = return xs
+reduce xs _ = return xs
 
 runSelect :: FromBit a => Select a -> a
 runSelect s = or (aux true s [])
@@ -106,7 +107,7 @@ instance (HasSAT s, MonadState s m) => Semigroup (SelectBuilder s m a) where
 singleton :: Applicative m => a -> Option (SelectBuilder s m a)
 singleton = Option . Just . SB . pure . Selected
 
-foldSelect :: (HasSAT s, MonadState s m, Foldable t) => t a -> Maybe (m (Select a))
+foldSelect :: (MonadSAT s m, Foldable t) => t a -> Maybe (m (Select a))
 foldSelect t = runSelectBuilder <$> getOption (foldMap singleton t)
 
 selectEq :: Eq a => Select a -> Select a -> Bit

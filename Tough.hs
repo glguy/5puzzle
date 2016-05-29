@@ -8,17 +8,13 @@
 module Main where
 
 import Control.Applicative (liftA2)
-import Control.Monad (replicateM)
 import Data.Traversable (for)
-import Data.Foldable (toList)
-import Data.List (tails)
 import Linear (V2(V2))
 import Prelude hiding (and,any,not,or,all,(&&),(||))
 
 import Ersatz
 
 import Booleans
-import FromBit
 import Select
 import SparseMap
 
@@ -135,6 +131,7 @@ rotationChar [Side Out _, Side Out _, Side In  _, Side In  _] = '┗'
 rotationChar [Side In  _, Side Out _, Side Out _, Side In  _] = '┏'
 rotationChar [Side In  _, Side In  _, Side Out _, Side Out _] = '┓'
 rotationChar [Side Out _, Side In  _, Side In  _, Side Out _] = '┛'
+rotationChar _ = error "rotationChar: Invalid rotation"
 
 render :: [Piece] -> String
 render xs = unlines [ [ index (V2 row col) m | col <- [-1 .. 5] ]
@@ -143,11 +140,11 @@ render xs = unlines [ [ index (V2 row col) m | col <- [-1 .. 5] ]
   m = renderMap (zip locations xs)
 
 renderMap :: [(V2 Int, Piece)] -> SparseMap (V2 Int) Char
-renderMap pieces = fromList ' ' $
+renderMap ps = fromList ' ' $
   [ (loc1, suitChar suit)
-  | (loc, suits) <- pieces
+  | (loc, suits) <- ps
   , (loc1, Side _ suit) <- zip (edgeCoords loc) suits
   ] ++
   [ (loc, rotationChar suits)
-  | (loc, suits) <- pieces
+  | (loc, suits) <- ps
   ]

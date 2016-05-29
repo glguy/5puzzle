@@ -5,7 +5,6 @@ import Data.Char
 import Data.Word (Word8)
 import Ersatz
 import System.Environment
-import Data.Monoid ((<>))
 import Prelude hiding (not, and, or, any, all, (&&), (||))
 import           Data.Map (Map)
 import qualified Data.Map as Map

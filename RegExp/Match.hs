@@ -7,7 +7,6 @@ by Sebastian Fischer, Franks Huch, and Thomas Wilke
 module RegExp.Match  where
 
 import RegExp.AST
-import Control.Applicative
 import Prelude hiding ((||),(&&),not,any)
 
 import Ersatz
@@ -58,9 +57,6 @@ match :: Equatable a => RegExp a -> [a] -> Bit
 match e [] = bool (acceptsEmpty e)
 match e (c : cs) = matched s2
   where
-  s0 = mkRegS e
+  s0 = foldRegExp (RegS false) e
   s1 = advanceRegS c s0 true
   s2 = foldl (\s c1 -> advanceRegS c1 s false) s1 cs
-
-mkRegS :: RegExp a -> RegS a
-mkRegS = foldRegExp (RegS false)

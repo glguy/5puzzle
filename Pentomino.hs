@@ -2,10 +2,8 @@
 {-# Language PackageImports #-}
 module Main where
 
-import "base"         Data.List ((\\), sort, findIndex, nub, mapAccumL)
-import "base"         Data.Maybe (fromJust)
+import "base"         Data.List (sort, nub)
 import "base"         Control.Applicative (liftA2)
-import "base"         Control.Monad (replicateM)
 import "base"         System.Environment (getArgs)
 import                Prelude hiding (not, or, and, all, (&&), (||))
 

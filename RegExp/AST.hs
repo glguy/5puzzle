@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 module RegExp.AST
   ( RegF(..), RegExp(..), SetMode(..), RegFullF(..), RegExpFull(..),
@@ -7,9 +5,6 @@ module RegExp.AST
     grouping, foldRegExp, foldRegExpFull, simplify,
     AcceptsEmpty(..)
   ) where
-
-import Data.Traversable (Traversable)
-import Data.Foldable (Foldable)
 
 data SetMode = InSet | NotInSet
   deriving (Read,Show,Eq,Ord)
@@ -82,6 +77,7 @@ foldRegExpFull f (REF x) = f (fmap (foldRegExpFull f) x)
 instance AcceptsEmpty (RegExp a) where
   acceptsEmpty (RE e) = acceptsEmpty e
 
+simple :: RegF () a (RegExpFull a) -> RegExpFull a
 simple = REF . RegF
 
 empty    :: RegExpFull a
