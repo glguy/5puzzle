@@ -52,7 +52,6 @@ aregexp
   | aregexp '?'           { $1 ||| empty            }
   | '\\' DIGIT            { backref (digitToInt $2) }
   | ALPHA                 { one $1                  }
-  | DIGIT                 { one $1                  }
   | '.'                   { anyone                  }
   | '[' letterset ']'     { oneOf $2                }
   | '[' '^' letterset ']' { noneOf $3               }

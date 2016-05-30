@@ -1,5 +1,5 @@
 {-# Language TemplateHaskell #-}
-module RegExp.BackMatch where
+module RegExp.BackMatch (backMatch) where
 
 import RegExp.AST
 import Control.Monad.Trans.State
@@ -12,10 +12,10 @@ import Prelude hiding ((&&),(||),all,and,any,or,not)
 import Ersatz
 
 data ParserState a = ParserState
-  { _tokens :: [a]
-  , _position :: !Int
+  { _tokens      :: [a]
+  , _position    :: !Int
   , _nextGroupId :: !Int
-  , _backgroups :: Map Int [a]
+  , _backgroups  :: Map Int [a]
   }
 
 makeLenses ''ParserState
@@ -23,37 +23,40 @@ makeLenses ''ParserState
 type M a = StateT (ParserState a) []
 
 backMatch :: Equatable a => RegExpFull a -> [a] -> Bit
-backMatch regexp inp = or (evalStateT body st0)
-  where
-  body = do res <- foldRegExpFull process regexp
-            []  <- use tokens -- consume full input
-            return res
+backMatch regexp inp
+  = or $ evalStateT ?? initialState inp
+  $ do res <- foldRegExpFull processFull regexp
+       []  <- use tokens -- consume full input
+       return res
 
-  st0 = ParserState { _tokens      = inp
-                    , _position    = 0
-                    , _nextGroupId = 0
-                    , _backgroups  = Map.empty
-                    }
+initialState :: [a] -> ParserState a
+initialState inp = ParserState
+  { _tokens      = inp
+  , _position    = 0
+  , _nextGroupId = 0
+  , _backgroups  = Map.empty
+  }
 
-  process (Group x) =
+processFull :: Equatable t => RegFullF t (M t Bit) -> M t Bit
+processFull (Group x) =
     do gid      <- nextGroupId <+= 1
        (res, g) <- withMatched x
        backgroups . at gid ?= g
        return res
 
-  process (BackRef d) =
+processFull (BackRef d) =
    do Just g <- use (backgroups . at d)
       toks   <- nextN (length g)
       return (toks === g)
 
-  process (RegF r) = process' r
+processFull (RegF r) = process r
 
-  process' Empty       = return true
-  process' (Seq _ x y) = liftA2 (&&) x y
-  process' (Alt _ x y) = x <|> y
-  process' (Rep m)     = and <$> many (nonempty m)
-
-  process' (OneOf mode xs) =
+process :: Equatable t => RegF z t (M t Bit) -> M t Bit
+process Empty       = return true
+process (Seq _ x y) = liftA2 (&&) x y
+process (Alt _ x y) = x <|> y
+process (Rep m)     = and <$> many (nonempty m)
+process (OneOf mode xs) =
     do x <- next
        let match = any (x ===) xs
        case mode of
@@ -63,7 +66,7 @@ backMatch regexp inp = or (evalStateT body st0)
 nonempty :: M t a -> M t a
 nonempty m =
   do start <- use position
-     res <- m
+     res   <- m
      end   <- use position
      guard (end > start)
      return res
