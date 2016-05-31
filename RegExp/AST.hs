@@ -2,6 +2,7 @@
 module RegExp.AST
   ( RegF(..), RegExp(..), SetMode(..), RegFullF(..), RegExpFull(..),
     empty, one, oneOf, noneOf, anyone, (|||), (>>>), rep, backref,
+    repExact, repAtLeast, repBetween,
     grouping, foldRegExp, foldRegExpFull, simplify,
     AcceptsEmpty(..)
   ) where
@@ -103,6 +104,24 @@ r1 >>> r2 = simple (Seq () r1 r2)
 
 rep      :: RegExpFull a -> RegExpFull a
 rep r     = simple (Rep r)
+
+seqs :: [RegExpFull a] -> RegExpFull a
+seqs [] = empty
+seqs xs = foldr1 (>>>) xs
+
+repExact :: Int -> RegExpFull a -> RegExpFull a
+repExact n m = seqs (replicate n m)
+
+repAtLeast :: Int -> RegExpFull a -> RegExpFull a
+repAtLeast n m = seqs (replicate n m ++ [rep m])
+
+repBetween :: Int -> Int -> RegExpFull a -> RegExpFull a
+repBetween n1 n2 m | n1 == n2 = repExact n1 m
+repBetween n1 n2 m = seqs (replicate n1 m ++ [repUpTo (n2-n1) m])
+
+repUpTo :: Int -> RegExpFull a -> RegExpFull a
+repUpTo 1 m = empty ||| m
+repUpTo n m = empty ||| (m >>> repUpTo (n-1) m)
 
 grouping :: RegExpFull a -> RegExpFull a
 grouping r = REF (Group r)

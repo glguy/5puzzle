@@ -38,7 +38,7 @@ smartMatch :: RegExpFull Char -> [Letter] -> Bit
 smartMatch regexp =
   let regexp' = fmap encode regexp in
   case simplify regexp' of
-    Just s  -> match s
+    Just s  -> match (===) s
     Nothing -> backMatch regexp'
 
 

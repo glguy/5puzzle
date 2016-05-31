@@ -8,16 +8,15 @@ module RegExp.Match  where
 
 import RegExp.AST
 import Prelude hiding ((||),(&&),not,any)
+import Ersatz (Boolean(..))
 
-import Ersatz
+data RegS b a = RegS { matched :: b, expr :: RegF Bool a (RegS b a) }
 
-data RegS a = RegS { matched :: Bit, expr :: RegF Bool a (RegS a) }
-
-instance AcceptsEmpty (RegS a) where
+instance AcceptsEmpty (RegS b a) where
         acceptsEmpty e = acceptsEmpty (expr e)
 
-advanceRegS :: Equatable a => a -> RegS a -> Bit -> RegS a
-advanceRegS c = update
+advanceRegS :: Boolean c => (a -> b -> c) -> a -> RegS c b -> c -> RegS c b
+advanceRegS eq c = update
   where
    update re isFirst =
     case expr re of
@@ -25,7 +24,7 @@ advanceRegS c = update
            RegS { matched = false, expr = Empty }
 
         OneOf mode cs ->
-             let stb = any (c ===) cs
+             let stb = any (eq c) cs
                  stb' = case mode of
                           InSet    -> stb
                           NotInSet -> not stb
@@ -53,10 +52,10 @@ advanceRegS c = update
                  s = update e isFirst'
              in RegS { matched = matched s, expr = Rep s }
 
-match :: Equatable a => RegExp a -> [a] -> Bit
-match e [] = bool (acceptsEmpty e)
-match e (c : cs) = matched s2
+match :: Boolean c => (a -> b -> c) -> RegExp b -> [a] -> c
+match _  e [] = bool (acceptsEmpty e)
+match eq e (c : cs) = matched s2
   where
   s0 = foldRegExp (RegS false) e
-  s1 = advanceRegS c s0 true
-  s2 = foldl (\s c1 -> advanceRegS c1 s false) s1 cs
+  s1 = advanceRegS eq c s0 true
+  s2 = foldl (\s c1 -> advanceRegS eq c1 s false) s1 cs

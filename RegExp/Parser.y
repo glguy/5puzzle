@@ -13,6 +13,8 @@ import Data.Char
 
 '[' { '[' }
 ']' { ']' }
+'{' { '{' }
+'}' { '}' }
 '(' { '(' }
 ')' { ')' }
 '.' { '.' }
@@ -22,6 +24,7 @@ import Data.Char
 '^' { '^' }
 '|' { '|' }
 '*' { '*' }
+',' { ',' }
 DIGIT { (check isDigit -> Just (??)) }
 ALPHA { (check isAlpha -> Just (??)) }
 
@@ -56,9 +59,17 @@ aregexp
   | '[' letterset ']'     { oneOf $2                }
   | '[' '^' letterset ']' { noneOf $3               }
 
+  | aregexp '{' number '}'            { repExact $3 $1      }
+  | aregexp '{' number ',' '}'        { repAtLeast $3 $1    }
+  | aregexp '{' number ',' number '}' { repBetween $3 $5 $1 }
+
 letterset :: { String }
   : ALPHA           { [ $1 ]  }
   | letterset ALPHA { $2 : $1 }
+
+number :: {Int}
+  : DIGIT { digitToInt $1 }
+  | number DIGIT { $1 * 10 + digitToInt $2 }
 
 {
 check :: (a -> Bool) -> a -> Maybe a
