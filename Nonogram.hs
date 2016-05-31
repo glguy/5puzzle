@@ -4,7 +4,6 @@ module Main where
 
 import RegExp.AST
 import RegExp.Match     (match)
-import RegExp.Parser    (parseRegExp)
 
 import Ersatz
 import Booleans
@@ -13,9 +12,10 @@ import Control.Monad
 import Data.List (intercalate,transpose)
 import Prelude hiding ((&&),(||),all,and,any,or,not)
 
+main :: IO ()
 main =
   do (Satisfied, Just xs) <- solveWith minisat (nonoSolve nonoPuzzle2)
-     let asChar True = '*'
+     let asChar True  = '*'
          asChar False = ' '
      putStr $ unlines $ map (map asChar) xs
 
@@ -107,6 +107,7 @@ gchqPuzzle = NonoPuzzle
 
 nonoSolve :: MonadSAT s m => NonoPuzzle -> m [[Bit]]
 nonoSolve (NonoPuzzle rows cols extras) =
+
   do cells <- replicateM (length rows)
             $ replicateM (length cols) exists
 

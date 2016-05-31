@@ -8,12 +8,11 @@ import RegExp.BackMatch (backMatch)
 import RegExp.Parser    (parseRegExp)
 
 import Ersatz
-import FromBit
 import Booleans
 
 import Control.Monad
 import Data.Char
-import Data.List (intersperse,intercalate,transpose)
+import Data.List (intersperse)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Prelude hiding ((&&),(||),all,and,any,or,not)
