@@ -2,7 +2,7 @@
 {-# Language GeneralizedNewtypeDeriving #-}
 module Main where
 
-import RegExp.AST       (RegExpFull, simplify)
+import RegExp.AST
 import RegExp.Match     (match)
 import RegExp.BackMatch (backMatch)
 import RegExp.Parser    (parseRegExp)
@@ -13,7 +13,7 @@ import Booleans
 
 import Control.Monad
 import Data.Char
-import Data.List (intersperse)
+import Data.List (intersperse,intercalate,transpose)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Prelude hiding ((&&),(||),all,and,any,or,not)
