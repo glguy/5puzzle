@@ -1,5 +1,3 @@
-{-# Language TypeFamilies #-}
-{-# Language GeneralizedNewtypeDeriving #-}
 module Main where
 
 import RegExp.AST
@@ -12,12 +10,33 @@ import Control.Monad
 import Data.List (intercalate,transpose)
 import Prelude hiding ((&&),(||),all,and,any,or,not)
 
+import Data.Colour.SRGB
+import Diagrams.Prelude (Diagram, mkSizeSpec, scale, fc, square)
+import Diagrams.TwoD.Transform (translateX, translateY)
+import Diagrams.Backend.SVG (B, renderSVG)
+
 main :: IO ()
 main =
   do (Satisfied, Just xs) <- solveWith minisat (nonoSolve nonoPuzzle2)
      let asChar True  = '*'
          asChar False = ' '
      putStr $ unlines $ map (map asChar) xs
+
+     let sizeSpec = mkSizeSpec (pure Nothing)
+     renderSVG "output.svg" sizeSpec (drawSolution xs)
+
+drawSolution :: [[Bool]] -> Diagram B
+drawSolution rows
+  = scale 10
+  $ foldMap drawCell [ (r,c) | (r,row ) <- zip [0..] rows
+                             , (c,True) <- zip [0..] row ]
+
+drawCell :: (Int,Int) -> Diagram B
+drawCell (r,c)
+  = translateX (fromIntegral c)
+  $ translateY (fromIntegral (negate r))
+  $ fc (sRGB24 30 30 30)
+  $ square 1
 
 data NonoPuzzle = NonoPuzzle
   { nonorows, nonocols :: [[Int]]
@@ -71,8 +90,8 @@ gchqPuzzle = NonoPuzzle
   , [1,3,1,1,6,6]
   , [1,1,2,1,1,2]
   , [7,2,1,2,5]
-  ][
-    [7,2,1,1,7]
+  ]
+  [ [7,2,1,1,7]
   , [1,1,2,2,1,1]
   , [1,3,1,3,1,3,1,3,1]
   , [1,3,1,1,5,1,3,1]
@@ -111,25 +130,19 @@ nonoSolve (NonoPuzzle rows cols extras) =
   do cells <- replicateM (length rows)
             $ replicateM (length cols) exists
 
-     let check = match (===) . fmap bool . nonoHint
+     let check = match (===) . nonoHint
      assert $ and $ zipWith check rows cells
                  ++ zipWith check cols (transpose cells)
                  ++ map (\(r,c) -> cells !! r !! c) extras
 
      return cells
 
-nonoHint :: [Int] -> RegExp Bool
-nonoHint h =
-  case h of
-    [] -> blanks
-    ns -> foldr next blanks
-            $ blanks
-            : intercalate gap (map thing ns)
+nonoHint :: Boolean a => [Int] -> RegExp a
+nonoHint = foldr next blanks . intercalate [blank] . map hint
   where
-  blank   = fill False
-  blanks  = RE (Rep blank)
-  thing n = replicate n (fill True)
-  gap     = [ blank, blanks ]
+  blank  = fill false
+  hint n = blanks : replicate n (fill true)
 
-  fill     = RE . OneOf InSet . return
+  blanks   = RE (Rep blank)
+  fill x   = RE (OneOf InSet [x])
   next x y = RE (Seq (acceptsEmpty x && acceptsEmpty y) x y)
