@@ -24,6 +24,7 @@ CLUES:
 
 The question is, who keeps the fish?
 -}
+{-# Language DeriveGeneric #-}
 module Main where
 
 import Ersatz
@@ -31,7 +32,23 @@ import Select
 import Booleans
 
 import Data.List (intercalate)
+import GHC.Generics (Generic)
 import Prelude hiding (and, or, (&&), (||), not)
+
+type SAssignment = ([Select Natl], [Select Drink], [Select Smoke], [Select Pet], [Select Color])
+type Assignment = ([Natl], [Drink], [Smoke], [Pet], [Color])
+
+data Natl  = Brit  | Swede   | Dane   | Norwgn | German deriving (Bounded, Enum, Show, Generic)
+data Drink = Tea   | Beer    | Coffee | Water  | Milk   deriving (Bounded, Enum, Show, Generic)
+data Smoke = Pall  | Dunhill | Camel  | Marl   | Blend  deriving (Bounded, Enum, Show, Generic)
+data Pet   = Bird  | Dog     | Cat    | Horse  | Fish   deriving (Bounded, Enum, Show, Generic)
+data Color = Green | Red     | Blue   | Yellow | White  deriving (Bounded, Enum, Show, Generic)
+
+instance Equatable Natl
+instance Equatable Drink
+instance Equatable Smoke
+instance Equatable Pet
+instance Equatable Color
 
 main :: IO ()
 main =
@@ -39,53 +56,55 @@ main =
 
      -- Verify that this solution is unique
      (Unsatisfied, solution') <- solveWith minisat $
-       do xs <- problem
-          assert (not (all2 (all2 selectEq) xs (encode solution)))
+       problem `checking` (/== encode solution)
 
      let _ = solution' `asTypeOf` Nothing -- type disambiguation
 
      printTable solution
 
-printTable :: [[String]] -> IO ()
-printTable = mapM_ (putStrLn . intercalate "\t")
+printTable :: Assignment -> IO ()
+printTable (natl,drink,smoke,pet,color) =
+  do let write :: Show a => [a] -> IO ()
+         write = putStrLn . intercalate "\t" . map show
+     write natl
+     write drink
+     write smoke
+     write pet
+     write color
 
-categories :: [[String]]
-categories =
-  [["Brit" ,"Swede"  ,"Dane"  ,"Norwgn","German"]
-  ,["Tea"  ,"Beer"   ,"Coffee","Water" ,"Milk"  ]
-  ,["Pall" ,"Dunhill","Camel" ,"Marl"  ,"Blend" ]
-  ,["Bird" ,"Dog"    ,"Cat"   ,"Horse" ,"Fish"  ]
-  ,["Green","Red"    ,"Blue"  ,"Yellow","White" ]
+assignment :: MonadSAT s m => m SAssignment
+assignment = (,,,,) <$> sel <*> sel <*> sel <*> sel <*> sel
+  where
+  sel :: (Bounded a, Enum a, MonadSAT s m) => m [Select a]
+  sel = selectPermutation [minBound ..]
+
+problem :: MonadSAT s m => m SAssignment
+problem = assignment `checking` isValid
+
+isValid :: SAssignment -> Bit
+isValid (natl,drink,smoke,pet,color) = and
+  [ match Brit   natl  Red     color
+  , match Swede  natl  Dog     pet
+  , match Dane   natl  Tea     drink
+  , match German natl  Marl    smoke
+  , match Green  color Coffee  drink
+  , match Yellow color Dunhill smoke
+  , match Bird   pet   Pall    smoke
+  , match Beer   drink Camel   smoke
+  , is Norwgn natl  !! 0
+  , is Milk   drink !! 2
+
+  , leftOf Green  color White   color
+  , nextTo Blend  smoke Cat     pet
+  , nextTo Horse  pet   Dunhill smoke
+  , nextTo Norwgn natl  Blue    color
+  , nextTo Blend  smoke Water   drink
   ]
 
-problem :: MonadSAT s m => m [[Select String]]
-problem = traverse selectPermutation categories `checking` isValid
-
-isValid :: [[Select String]] -> Bit
-isValid [natl,drink,smoke,pet,color] = and
-  [ match "Brit"   natl  "Red"     color
-  , match "Swede"  natl  "Dog"     pet
-  , match "Dane"   natl  "Tea"     drink
-  , match "German" natl  "Marl"    smoke
-  , match "Green"  color "Coffee"  drink
-  , match "Yellow" color "Dunhill" smoke
-  , match "Bird"   pet   "Pall"    smoke
-  , match "Beer"   drink "Camel"   smoke
-  , is "Milk"   (drink !! 2)
-  , is "Norwgn" (natl  !! 0)
-
-  , leftOf "Green"  color "White"   color
-  , nextTo "Blend"  smoke "Cat"     pet
-  , nextTo "Horse"  pet   "Dunhill" smoke
-  , nextTo "Norwgn" natl  "Blue"    color
-  , nextTo "Blend"  smoke "Water"   drink
-  ]
-isValid _ = error "isValid: 5 elements expected"
-
-match, leftOf, nextTo :: Eq a => a -> [Select a] -> a -> [Select a] -> Bit
-match  x xs y ys = map (is x) xs === map (is y) ys
-leftOf x xs y ys = map (is x) xs === map (is y) (tail ys) ++ [false]
+match, leftOf, nextTo :: (Equatable a, Equatable b) => a -> [Select a] -> b -> [Select b] -> Bit
+match  x xs y ys = is x xs === is y ys
+leftOf x xs y ys = false : is x xs === is y ys ++ [false]
 nextTo x xs y ys = leftOf x xs y ys || leftOf y ys x xs
 
-is :: Eq a => a -> Select a -> Bit
-is = selectEq . pure
+is :: Equatable a => a -> [Select a] -> [Bit]
+is x ys = map (encode x ===) ys
