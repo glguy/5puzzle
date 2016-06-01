@@ -12,7 +12,7 @@ maintainer:          emertens@gmail.com
 copyright:           2016 Eric Mertens
 category:            Game
 build-type:          Simple
-extra-source-files:  ChangeLog.md
+extra-source-files:  ChangeLog.md README.md
 cabal-version:       >=1.10
 
 source-repository head
