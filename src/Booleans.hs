@@ -1,13 +1,22 @@
 {-# Language ConstraintKinds #-}
 
-module Booleans (MonadSAT, existsNat, coverOne, unique, checking, isTrue, exactlyOne) where
+module Booleans
+  ( MonadSAT
+  , existsNat
+  , coverOne
+  , unique
+  , checking
+  , isTrue
+  , exactlyOne
+  , any2, all2
+  ) where
 
 import Ersatz
 import Data.List (tails, mapAccumL)
 import Data.Foldable (toList)
 import Control.Monad.State (MonadState)
 import Control.Monad (replicateM)
-import Prelude hiding (not, all, (&&), (||))
+import Prelude hiding (not, all, (&&), (||), and, or)
 
 -- | Returns a summary value of where a boolean is true in exactly
 -- one position in the list.
@@ -49,3 +58,13 @@ existsNat limit =
   where
   log2 acc 0 = acc
   log2 acc n = log2 (acc+1) (n`quot`2)
+
+-- | Zip two lists of the same length together with a function.
+-- Return true when all results are true.
+all2 :: (a -> b -> Bit) -> [a] -> [b] -> Bit
+all2 f xs ys = and (zipWith f xs ys)
+
+-- | Zip two lists of the same length together with a function.
+-- Return true when any result is true.
+any2 :: (a -> b -> Bit) -> [a] -> [b] -> Bit
+any2 f xs ys = or (zipWith f xs ys)

@@ -35,17 +35,31 @@ import Prelude hiding (and, or, (&&), (||), not)
 
 main :: IO ()
 main =
-  do (Satisfied, Just x) <- solveWith minisat problem
-     mapM_ (putStrLn . intercalate "\t") x
+  do (Satisfied, Just solution) <- solveWith minisat problem
 
-problem :: MonadSAT s m => m [[Select String]]
-problem = traverse selectPermutation
+     -- Verify that this solution is unique
+     (Unsatisfied, solution') <- solveWith minisat $
+       do xs <- problem
+          assert (not (all2 (all2 selectEq) xs (encode solution)))
+
+     let _ = solution' `asTypeOf` Nothing -- type disambiguation
+
+     printTable solution
+
+printTable :: [[String]] -> IO ()
+printTable = mapM_ (putStrLn . intercalate "\t")
+
+categories :: [[String]]
+categories =
   [["Brit" ,"Swede"  ,"Dane"  ,"Norwgn","German"]
   ,["Tea"  ,"Beer"   ,"Coffee","Water" ,"Milk"  ]
   ,["Pall" ,"Dunhill","Camel" ,"Marl"  ,"Blend" ]
   ,["Bird" ,"Dog"    ,"Cat"   ,"Horse" ,"Fish"  ]
   ,["Green","Red"    ,"Blue"  ,"Yellow","White" ]
-  ] `checking` isValid
+  ]
+
+problem :: MonadSAT s m => m [[Select String]]
+problem = traverse selectPermutation categories `checking` isValid
 
 isValid :: [[Select String]] -> Bit
 isValid [natl,drink,smoke,pet,color] = and

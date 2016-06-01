@@ -131,9 +131,9 @@ nonoSolve (NonoPuzzle rows cols extras) =
             $ replicateM (length cols) exists
 
      let check = match (===) . nonoHint
-     assert $ and $ zipWith check rows cells
-                 ++ zipWith check cols (transpose cells)
-                 ++ map (\(r,c) -> cells !! r !! c) extras
+     assert $ all2 check rows cells
+     assert $ all2 check cols (transpose cells)
+     assert $ all (\(r,c) -> cells !! r !! c) extras
 
      return cells
 
