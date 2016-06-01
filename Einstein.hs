@@ -33,6 +33,7 @@ import Booleans
 import Data.List (intercalate)
 import Prelude hiding (and, or, (&&), (||), not)
 
+main :: IO ()
 main =
   do (Satisfied, Just x) <- solveWith minisat problem
      mapM_ (putStrLn . intercalate "\t") x
@@ -65,6 +66,7 @@ isValid [natl,drink,smoke,pet,color] = and
   , nextTo "Norwgn" natl  "Blue"    color
   , nextTo "Blend"  smoke "Water"   drink
   ]
+isValid _ = error "isValid: 5 elements expected"
 
 match, leftOf, nextTo :: Eq a => a -> [Select a] -> a -> [Select a] -> Bit
 match  x xs y ys = map (is x) xs === map (is y) ys
