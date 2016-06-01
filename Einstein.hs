@@ -24,7 +24,6 @@ CLUES:
 
 The question is, who keeps the fish?
 -}
-{-# Language DeriveTraversable, TypeFamilies, RecordWildCards #-}
 module Main where
 
 import Ersatz
@@ -32,22 +31,7 @@ import Select
 import Booleans
 
 import Data.List (intercalate)
-import Data.Foldable (toList)
 import Prelude hiding (and, or, (&&), (||), not)
-
-
-data Assignment a = Assignment
-  { natl, drink, smoke, pet, color :: a }
-  deriving (Functor, Foldable, Traversable)
-
-instance Codec a => Codec (Assignment a) where
-  type Decoded (Assignment a) = Assignment (Decoded a)
-  encode = fmap encode
-  decode = traverse . decode
-
-assignmentEq :: Eq a => Assignment [Select a] -> Assignment [Select a] -> Bit
-assignmentEq x y = all2 (all2 selectEq) (toList x) (toList y)
-
 
 main :: IO ()
 main =
@@ -56,29 +40,29 @@ main =
      -- Verify that this solution is unique
      (Unsatisfied, solution') <- solveWith minisat $
        do xs <- problem
-          assert (not (assignmentEq xs (encode solution)))
+          assert (not (all2 (all2 selectEq) xs (encode solution)))
 
      let _ = solution' `asTypeOf` Nothing -- type disambiguation
 
      printTable solution
 
-printTable :: Assignment [String] -> IO ()
-printTable Assignment{..} =
-  mapM_ (putStrLn . intercalate "\t") [natl, pet, color, drink, smoke]
+printTable :: [[String]] -> IO ()
+printTable = mapM_ (putStrLn . intercalate "\t")
 
-categories :: Assignment [String]
-categories = Assignment
-  ["Brit" ,"Swede"  ,"Dane"  ,"Norwgn","German"]
-  ["Tea"  ,"Beer"   ,"Coffee","Water" ,"Milk"  ]
-  ["Pall" ,"Dunhill","Camel" ,"Marl"  ,"Blend" ]
-  ["Bird" ,"Dog"    ,"Cat"   ,"Horse" ,"Fish"  ]
-  ["Green","Red"    ,"Blue"  ,"Yellow","White" ]
+categories :: [[String]]
+categories =
+  [["Brit" ,"Swede"  ,"Dane"  ,"Norwgn","German"]
+  ,["Tea"  ,"Beer"   ,"Coffee","Water" ,"Milk"  ]
+  ,["Pall" ,"Dunhill","Camel" ,"Marl"  ,"Blend" ]
+  ,["Bird" ,"Dog"    ,"Cat"   ,"Horse" ,"Fish"  ]
+  ,["Green","Red"    ,"Blue"  ,"Yellow","White" ]
+  ]
 
-problem :: MonadSAT s m => m (Assignment [Select String])
+problem :: MonadSAT s m => m [[Select String]]
 problem = traverse selectPermutation categories `checking` isValid
 
-isValid :: Assignment [Select String] -> Bit
-isValid Assignment{..} = and
+isValid :: [[Select String]] -> Bit
+isValid [natl,drink,smoke,pet,color] = and
   [ match "Brit"   natl  "Red"     color
   , match "Swede"  natl  "Dog"     pet
   , match "Dane"   natl  "Tea"     drink
@@ -96,6 +80,7 @@ isValid Assignment{..} = and
   , nextTo "Norwgn" natl  "Blue"    color
   , nextTo "Blend"  smoke "Water"   drink
   ]
+isValid _ = error "isValid: 5 elements expected"
 
 match, leftOf, nextTo :: Eq a => a -> [Select a] -> a -> [Select a] -> Bit
 match  x xs y ys = map (is x) xs === map (is y) ys
