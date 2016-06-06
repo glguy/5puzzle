@@ -28,7 +28,7 @@ library
   build-tools:         alex, happy
   hs-source-dirs:      src
   default-language:    Haskell2010
-  build-depends:       base         >=4.8  && <4.9 ,
+  build-depends:       base         >=4.8  && <4.10,
                        containers   >=0.5  && <0.6 ,
                        ersatz       >=0.3  && <0.4 ,
                        linear       >=1.20 && <1.21,
@@ -43,7 +43,7 @@ executable Domino
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        diagrams-lib >=1.3  && <1.4 ,
                        diagrams-svg >=1.4  && <1.5 ,
                        ersatz       >=0.3  && <0.4 ,
@@ -54,7 +54,7 @@ executable Pentomino
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        colour       >=2.3  && <2.4 ,
                        diagrams-lib >=1.3  && <1.4 ,
                        diagrams-svg >=1.4  && <1.5 ,
@@ -68,7 +68,7 @@ executable Tough
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4 ,
                        linear       >=1.20 && <1.21
 
@@ -77,7 +77,7 @@ executable SetGame
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4
 
 executable Sudoku
@@ -85,7 +85,7 @@ executable Sudoku
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4 ,
                        linear       >=1.20 && <1.21,
                        containers   >=0.5  && <0.6
@@ -95,7 +95,7 @@ executable Cube
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4 ,
                        linear       >=1.20 && <1.21
 
@@ -104,7 +104,7 @@ executable Queens
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4
 
 executable RegExp
@@ -112,7 +112,7 @@ executable RegExp
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4,
                        containers   >=0.5  && <0.6
 
@@ -121,7 +121,7 @@ executable Nonogram
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9,
+                       base         >=4.8  && <4.10,
                        ersatz       >=0.3  && <0.4,
                        colour       >=2.3  && <2.4,
                        diagrams-lib >=1.3  && <1.4,
@@ -132,5 +132,5 @@ executable Einstein
   hs-source-dirs:      .
   default-language:    Haskell2010
   build-depends:       5puzzle,
-                       base         >=4.8  && <4.9 ,
+                       base         >=4.8  && <4.10 ,
                        ersatz       >=0.3  && <0.4
