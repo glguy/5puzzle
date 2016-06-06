@@ -105,7 +105,7 @@ main :: IO ()
 main =
   do args <- getArgs
      let fn = case args of
-                []  -> "pieces.txt"
+                []  -> "pentomino-puzzles/pieces.txt"
                 x:_ -> x
      Piece board:pieces <- loadPieces fn
      (Satisfied, Just sol) <- solveWith minisat (problem board pieces)

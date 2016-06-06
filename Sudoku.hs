@@ -70,7 +70,7 @@ getConstraintFileName :: IO FilePath
 getConstraintFileName =
   do args <- getArgs
      return $! case args of
-                 []  -> "sudoku.txt"
+                 []  -> "sudoku-puzzles/sudoku.txt"
                  x:_ -> x
 
 main :: IO ()
