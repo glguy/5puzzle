@@ -135,3 +135,11 @@ executable Einstein
   build-depends:       5puzzle,
                        base         >=4.8  && <4.10 ,
                        ersatz       >=0.3  && <0.4
+
+executable Coins
+  main-is:             Coins.hs
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  build-depends:       5puzzle,
+                       base         >=4.8  && <4.10 ,
+                       ersatz       >=0.3  && <0.4

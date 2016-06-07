@@ -9,6 +9,7 @@ module Booleans
   , isTrue
   , exactlyOne
   , any2, all2
+  , countBits
   ) where
 
 import Ersatz
@@ -68,3 +69,7 @@ all2 f xs ys = and (zipWith f xs ys)
 -- Return true when any result is true.
 any2 :: (a -> b -> Bit) -> [a] -> [b] -> Bit
 any2 f xs ys = or (zipWith f xs ys)
+
+-- | Count the number of 'true' elements in a list of bits.
+countBits :: [Bit] -> Bits
+countBits = sumBits . map (Bits . return)

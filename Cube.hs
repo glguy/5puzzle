@@ -58,7 +58,7 @@ solution  =
      return orientedPieces
 
 count :: Eq a => a -> [Select a] -> Bits
-count target xs = sumBits [ Bits [eltToBit p] | p <- xs ]
+count target xs = countBits (map eltToBit xs)
   where
   eltToBit = runSelectWith $ \x -> bool (x == target)
 
