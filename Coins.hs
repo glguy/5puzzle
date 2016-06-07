@@ -3,7 +3,8 @@
 You are given 12 coins and a balance scale. You are told that 11 of the coins
 weight exactly the same as each other. 1 of the coins has a different weight
 than the rest. You can take 3 measurements using the balance scale. Plan a
-set of weighings that will enable you to find the odd coin.
+set of weighings that will enable you to find the odd coin as well as if it
+is lighter or heavier than the rest.
 
  -}
 {-# Language DeriveGeneric, DeriveTraversable #-}
@@ -58,10 +59,12 @@ instance Codec a => Codec (Partition a) where
 
 ------------------------------------------------------------------------
 
-data Mode = Light | Heavy
-  deriving (Show, Eq)
+data Weight = Light | Heavy
+  deriving (Show, Eq, Generic)
 
-problem :: MonadSAT s m => m (Partition Bit, Partition Bit, Partition Bit, Decision3 Bit4)
+instance Equatable Weight
+
+problem :: MonadSAT s m => m (Partition Bit, Partition Bit, Partition Bit, Decision3 (Bit,Bit4))
 problem =
   do [d1,d2,d3] <- replicateM 3 (partitionExists 12)
 
@@ -78,32 +81,37 @@ problem =
 -- correctly identify the identity of a given coin and weight mode.
 check ::
   Partition Bit -> Partition Bit -> Partition Bit ->
-  Decision3 Bit4 -> Int -> Mode -> Bit
-check p1 p2 p3 d i mode = encode (fromIntegral i) === applyPartitions d
+  Decision3 (Bit,Bit4) -> Int -> Weight -> Bit
+check p1 p2 p3 d i weight = encode (weightBit, fromIntegral i) === applyPartitions d
   where
+  weightBit = case weight of
+                Heavy -> true
+                Light -> false
   applyPartitions
-    =             (select p1 i mode)
-    . fmap        (select p2 i mode)
-    . (fmap.fmap) (select p3 i mode)
+    =             (decide p1 i weight)
+    . fmap        (decide p2 i weight)
+    . (fmap.fmap) (decide p3 i weight)
 
 -- | Given a partitioning of the coins and a coin that is lighter
 -- or heavier than the rest of the coins, choose the corresponding
 -- element in the decision tree.
-select :: FromBit a => Partition Bit -> Int -> Mode -> Decision a -> a
-select (Partition l r) i m d
-   = fromBit (inL && heavy || inR && not heavy) && lo_hi d
-  || fromBit (inR && heavy || inL && not heavy) && hi_lo d
-  || fromBit (not inL && not inR)               && same d
+decide :: Partition Bit -> Int -> Weight -> Decision (Bit, Bit4) -> (Bit, Bit4)
+decide (Partition l r) i m d
+   = match (inL && heavy || inR && not heavy) (lo_hi d)
+  `or2` match (inR && heavy || inL && not heavy) (hi_lo d)
+  `or2` match (not inL && not inR)               (same d)
   where
+  or2 (a,b) (c,d) = (a || c, b || d)
   inL = l!!i
   inR = r!!i
+  match b (x,y) = (b&&x, fromBit b&&y)
   heavy = case m of
             Heavy -> true
             Light -> false
 
 -- | Compute the 3 partitions and the decision tree that can uniquely
 -- identify any one coin that is lighter or heavier than all the rest.
-run :: IO (Decision3 Word8)
+run :: IO (Decision3 (Bool,Word8))
 run =
   do (Satisfied, Just (p1,p2,p3,tree)) <- solveWith minisat problem
      print (prettyPartition p1)
