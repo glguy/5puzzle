@@ -13,7 +13,7 @@ module Main (main) where
 
 import Ersatz
 import Booleans
-import FromBit
+import Select
 import Control.Monad
 import GHC.Generics
 import Data.List (elemIndices)
@@ -22,10 +22,8 @@ import Prelude hiding (or,(&&),(||),all,not)
 
 ------------------------------------------------------------------------
 
-data Decision a = Decision { lo_hi, hi_lo, same :: a }
+data Decision a = Answer a | Decision { lo_hi, hi_lo, same :: Decision a }
   deriving (Show, Functor, Foldable, Traversable)
-
-type Decision3 a = Decision (Decision (Decision a))
 
 instance Codec a => Codec (Decision a) where
   type Decoded (Decision a) = Decision (Decoded a)
@@ -59,64 +57,53 @@ instance Codec a => Codec (Partition a) where
 
 ------------------------------------------------------------------------
 
-data Weight = Light | Heavy
-  deriving (Show, Eq, Generic)
-
+data Weight = Light | Heavy deriving (Show, Eq, Generic)
 instance Equatable Weight
 
-problem :: MonadSAT s m => m (Partition Bit, Partition Bit, Partition Bit, Decision3 (Bit,Bit4))
+problem :: MonadSAT s m => m ([Partition Bit], Decision (Select Weight,Bit4))
 problem =
-  do [d1,d2,d3] <- replicateM 3 (partitionExists 12)
+  do ps <- replicateM 3 (partitionExists 12)
 
      let buildDecision m = Decision <$> m <*> m <*> m
-     tree <- buildDecision $ buildDecision $ buildDecision exists
+         answer          = (,) <$> selectList [Light,Heavy] <*> exists
+     tree <- buildDecision $ buildDecision $ buildDecision $ Answer <$> answer
 
      assert $ flip all [0..11] $ \i ->
               flip all [Light,Heavy] $ \mode ->
-              check d1 d2 d3 tree i mode
+              check i mode ps tree
 
-     return (d1,d2,d3,tree)
+     return (ps,tree)
 
--- | Check that the three partitionings of coins and the decision tree
+-- | Check that the partitionings of coins and the decision tree
 -- correctly identify the identity of a given coin and weight mode.
-check ::
-  Partition Bit -> Partition Bit -> Partition Bit ->
-  Decision3 (Bit,Bit4) -> Int -> Weight -> Bit
-check p1 p2 p3 d i weight = encode (weightBit, fromIntegral i) === applyPartitions d
+check :: Int -> Weight -> [Partition Bit] -> Decision (Select Weight,Bit4) -> Bit
+check i weight = go
   where
-  weightBit = case weight of
-                Heavy -> true
-                Light -> false
-  applyPartitions
-    =             (decide p1 i weight)
-    . fmap        (decide p2 i weight)
-    . (fmap.fmap) (decide p3 i weight)
-
--- | Given a partitioning of the coins and a coin that is lighter
--- or heavier than the rest of the coins, choose the corresponding
--- element in the decision tree.
-decide :: Partition Bit -> Int -> Weight -> Decision (Bit, Bit4) -> (Bit, Bit4)
-decide (Partition l r) i m d
-   = match (inL && heavy || inR && not heavy) (lo_hi d)
-  `or2` match (inR && heavy || inL && not heavy) (hi_lo d)
-  `or2` match (not inL && not inR)               (same d)
-  where
-  or2 (a,b) (c,d) = (a || c, b || d)
-  inL = l!!i
-  inR = r!!i
-  match b (x,y) = (b&&x, fromBit b&&y)
-  heavy = case m of
+  heavy = case weight of
             Heavy -> true
             Light -> false
 
+  go [] (Answer a) = encode (weight, fromIntegral i)===a
+
+  go (Partition l r : ps) d@Decision{}
+     = pick_lo_hi && go ps (lo_hi d)
+    || pick_hi_lo && go ps (hi_lo d)
+    || pick_same  && go ps (same  d)
+    where
+    pick_lo_hi = choose inR inL heavy
+    pick_hi_lo = choose inL inR heavy
+    pick_same  = not inL && not inR
+    inL = l!!i
+    inR = r!!i
+
+  go _ _ = false
+
 -- | Compute the 3 partitions and the decision tree that can uniquely
 -- identify any one coin that is lighter or heavier than all the rest.
-run :: IO (Decision3 (Bool,Word8))
+run :: IO (Decision (Weight, Word8))
 run =
-  do (Satisfied, Just (p1,p2,p3,tree)) <- solveWith minisat problem
-     print (prettyPartition p1)
-     print (prettyPartition p2)
-     print (prettyPartition p3)
+  do (Satisfied, Just (ps,tree)) <- solveWith minisat problem
+     mapM_ (print . prettyPartition) ps
      return tree
 
 main :: IO ()
