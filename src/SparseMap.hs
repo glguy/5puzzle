@@ -15,7 +15,7 @@ import Control.Applicative
 import           Data.Map (Map)
 import qualified Data.Map as Map
 
-data SparseMap k v = SparseMap (Map k v) v
+data SparseMap k v = SparseMap !(Map k v) v
   deriving (Read, Show)
 
 instance (Ord k, FromBit v) => FromBit (SparseMap k v) where

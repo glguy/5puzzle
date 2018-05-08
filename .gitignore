@@ -3,3 +3,6 @@
 stack.yaml
 .stack-work
 /output.svg
+/dist-newstyle
+.ghc.environment.*
+/cabal.project.local
