@@ -1,6 +1,6 @@
 module Main where
 
-import Data.Char (digitToInt, isDigit)
+import Data.Char (digitToInt, isDigit, intToDigit)
 import Data.Foldable (foldl', traverse_)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Traversable (for)
@@ -40,7 +40,7 @@ initialBoard = SparseMap.trueList . map fst . puzzleSquares
 puzzleBounds :: Puzzle -> Coord
 puzzleBounds (Puzzle target squares) = foldl' upd target (map fst squares)
   where
-    upd (Coord xMax yMax) (Coord x y) = Coord (max xMax y) (max yMax y)
+    upd (Coord xMax yMax) (Coord x y) = Coord (max xMax x) (max yMax y)
 
 
 -- | Given a puzzle compute a sequence of moves that will cause the target
@@ -181,7 +181,7 @@ fileDriver path =
 solveAndPrint :: Puzzle -> IO ()
 solveAndPrint p =
   do Just result <- solve p
-     mapM_ print result
+     putStrLn (renderSolution p result)
 
 
 parsePuzzle :: String -> Puzzle
@@ -194,3 +194,26 @@ parsePuzzle str = Puzzle target squares
              | (y,row) <- zip [0..] (lines str)
              , (x,cel) <- zip [0..] row
              ]
+
+------------------------------------------------------------------------
+
+-- | Produce a rendering of the solution to a puzzle showing which order
+-- to click each square and in which direction.
+renderSolution :: Puzzle -> [(Coord, Int, Dir)] -> String
+renderSolution puzzle solution =
+  unlines [ [ SparseMap.index (Coord x y) txt
+                | x <- [0 .. 3*xMax+2]]
+              | y <- [0..yMax] ]
+  where
+    Coord xMax yMax = puzzleBounds puzzle
+
+    dirChar d = case d of U -> '^'; D -> 'v'; L -> '<'; R -> '>'
+
+    expand (Coord x y, s) = [ (Coord (3*x+i) y, c) | (i,c) <- zip [0..] s ]
+
+    txt = SparseMap.fromList '.'
+        $ concatMap expand
+        $ [ (Coord x y, "[+]") | Coord x y <- [puzzleTarget puzzle] ]
+       ++ [ (Coord x y, "[ ]") | (Coord x y,_) <- puzzleSquares puzzle ]
+       ++ [ (Coord x y, [intToDigit (n`div`10), intToDigit (n`mod`10), dirChar d])
+             | (n, (Coord x y, _, d)) <- zip [1..] solution ]
