@@ -64,7 +64,7 @@ existsSolution n puzzle =
                     return (move, dir)
 
      -- update the initial board given the chosen moves
-     let bN = foldl' (uncurry (applyMove bounds)) b0 moves'
+     let bN = foldl' (\b (s,d) -> applyMove bounds b s d) b0 moves'
 
      -- ensure that the target cell on the board is reached
      assert (SparseMap.index (puzzleTarget puzzle) bN)
@@ -82,7 +82,7 @@ applyMove ::
   Select (Coord, Int) {- ^ move start and length -} ->
   Select Dir          {- ^ move direction        -} ->
   Board               {- ^ updated board state   -}
-applyMove bounds b (square, dir) =
+applyMove bounds b square dir =
   runSelect $
     do (coord, n) <- square
        d          <- dir
