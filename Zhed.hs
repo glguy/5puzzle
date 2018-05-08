@@ -1,3 +1,33 @@
+{-|
+Module      : Main
+Description : Solver for the Zhed game
+Copyright   : (c) Eric Mertens, 2018
+License     : ISC
+Maintainer  : emertens@gmail.com
+
+Zhed is a grid-based puzzle game where the player searches for
+an activation sequence of the squares of the puzzle that causes
+a target location to be covered.
+
+Each square in the puzzle has a number and can be activated
+at most one time. Activation happens in a cardinal direction.
+Upon activation the given number of squares is placed sequentially
+in the selected direction. Covered squares are skipped over allowing
+an activation to reach further if some of the neighboring squares
+are already covered. Activated and unactivated squares are treated
+as covered.
+
+In this example a digit represents a square able to be activated,
+an @X@ represents the target, and a @*@ represents a covered square.
+
+@
+..2..X   ..2..X   ..2..X   ..2*.X   ..****
+......   ......   ......   ...*..   ...*..
+2.....   2*....   ****..   ****..   ****..
+.1.2..   .*.2..   .*.2..   .*.*..   .*.*..
+@
+
+-}
 module Main where
 
 import Control.Monad (when)
@@ -17,18 +47,23 @@ import SparseMap (SparseMap)
 import qualified SparseMap
 import Booleans
 
+-- | Two-dimensional grid coordinate
 data Coord = Coord !Int !Int
   deriving (Eq, Ord, Show, Read)
 
+-- | Cardinal directions: up, down, left, right
 data Dir = U | D | L | R
   deriving (Eq, Ord, Read, Show)
 
+-- | Parameters for a particular Zhed puzzle
 data Puzzle = Puzzle
   { puzzleTarget  :: Coord          -- ^ coodinate of goal
   , puzzleSquares :: [(Coord, Int)] -- ^ initial list of squares
   }
   deriving (Read, Show)
 
+-- | Representation of the current state of a board. Coordinates
+-- are mapped to a true bit when the cell is filled and false otherwise.
 type Board = SparseMap Coord Bit
 
 
@@ -213,19 +248,19 @@ parsePuzzle str = Puzzle target squares
 -- to click each square and in which direction.
 renderSolution :: Puzzle -> [(Coord, Int, Dir)] -> String
 renderSolution puzzle solution =
-  unlines [ [ SparseMap.index (Coord x y) txt
-                | x <- [0 .. 4*xMax+2]]
-              | y <- [0..yMax] ]
+  unlines [ [ SparseMap.index (Coord x y) txt | x <- [0 .. 3*xMax+2]]
+          | y <- [0..yMax] ]
   where
     Coord xMax yMax = puzzleBounds puzzle
 
     dirChar d = case d of U -> '^'; D -> 'v'; L -> '<'; R -> '>'
 
-    expand (Coord x y, s) = [ (Coord (4*x+i) y, c) | (i,c) <- zip [0..] s ]
+    expand (Coord x y, s) = [ (Coord (3*x+i) y, c) | (i,c) <- zip [0..] s ]
 
     txt = SparseMap.fromList '.'
         $ concatMap expand
-        $ [ (Coord x y, "[+]") | Coord x y <- [puzzleTarget puzzle] ]
+        $ [ (Coord x y, "[+]") | Coord x y     <- [puzzleTarget puzzle] ]
        ++ [ (Coord x y, "[ ]") | (Coord x y,_) <- puzzleSquares puzzle ]
-       ++ [ (Coord x y, [intToDigit (n`div`10), intToDigit (n`mod`10), dirChar d])
-             | (n, (Coord x y, _, d)) <- zip [1..] solution ]
+       ++ [ (Coord x y, [intToDigit d1, intToDigit d2, dirChar d])
+             | (n, (Coord x y, _, d)) <- zip [1..] solution
+             , let (d1,d2) = quotRem n 10 ]
