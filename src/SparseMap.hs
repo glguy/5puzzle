@@ -1,3 +1,4 @@
+{-# Language TypeFamilies #-}
 module SparseMap
   (SparseMap(..)
   , trueList
@@ -11,6 +12,7 @@ import Ersatz
 import FromBit
 import Prelude hiding ((&&), (||), not)
 import Control.Applicative
+import Data.Monoid ((<>))
 
 import           Data.Map (Map)
 import qualified Data.Map as Map
@@ -23,6 +25,12 @@ instance (Ord k, FromBit v) => FromBit (SparseMap k v) where
 
 instance Functor (SparseMap k) where
   fmap f (SparseMap m x) = SparseMap (f <$> m) (f x)
+
+instance Foldable (SparseMap k) where
+  foldMap f (SparseMap m x) = foldMap f m <> f x
+
+instance Traversable (SparseMap k) where
+  traverse f (SparseMap m x) = SparseMap <$> traverse f m <*> f x
 
 instance Ord k => Applicative (SparseMap k) where
   pure = constant
@@ -66,3 +74,8 @@ instance (Ord k, Boolean v) => Boolean (SparseMap k v) where
 
 constant :: v -> SparseMap k v
 constant = SparseMap Map.empty
+
+instance Codec v => Codec (SparseMap k v) where
+  type Decoded (SparseMap k v) = SparseMap k (Decoded v)
+  encode = fmap encode
+  decode sol = traverse (decode sol)

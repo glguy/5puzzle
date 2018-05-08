@@ -7,7 +7,7 @@ Maintainer  : emertens@gmail.com
 
 Zhed is a grid-based puzzle game where the player searches for
 an activation sequence of the squares of the puzzle that causes
-a target location to be covered.
+at least one of the target locations to be covered.
 
 Each square in the puzzle has a number and can be activated
 at most one time. Activation happens in a cardinal direction.
@@ -33,9 +33,8 @@ module Main where
 import Control.Monad (when)
 import Data.Char (digitToInt, isDigit, intToDigit)
 import Data.Foldable (foldl', traverse_)
-import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Traversable (for)
-import Prelude hiding ((&&), (||), not)
+import Prelude hiding ((&&), (||), not, any)
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 
@@ -57,7 +56,7 @@ data Dir = U | D | L | R
 
 -- | Parameters for a particular Zhed puzzle
 data Puzzle = Puzzle
-  { puzzleTarget  :: Coord          -- ^ coodinate of goal
+  { puzzleTarget  :: [Coord]        -- ^ coodinates of goal
   , puzzleSquares :: [(Coord, Int)] -- ^ initial list of squares
   }
   deriving (Read, Show)
@@ -74,7 +73,7 @@ initialBoard = SparseMap.trueList . map fst . puzzleSquares
 
 -- | Compute the coordinate on the rectangular board furthest from the origin.
 puzzleBounds :: Puzzle -> Coord
-puzzleBounds (Puzzle target squares) = foldl' upd target (map fst squares)
+puzzleBounds (Puzzle target squares) = foldl' upd (Coord 0 0) (target ++ map fst squares)
   where
     upd (Coord xMax yMax) (Coord x y) = Coord (max xMax x) (max yMax y)
 
@@ -83,27 +82,28 @@ puzzleBounds (Puzzle target squares) = foldl' upd target (map fst squares)
 -- cell to be activated.
 existsSolution ::
   MonadSAT s m =>
-  Int                                   {- ^ solution length       -} ->
-  Puzzle                                {- ^ puzzle parameters     -} ->
-  m [(Select (Coord, Int), Select Dir)] {- ^ ordered list of moves -}
+  Int                            {- ^ solution length       -} ->
+  Puzzle                         {- ^ puzzle parameters     -} ->
+  m [(Select (Coord, Int, Dir))] {- ^ ordered list of moves -}
 existsSolution n puzzle =
 
   do -- chose the order cells will be clicked
      moves  <- selectPermutationN n (puzzleSquares puzzle)
 
+     let combine x y = do (a,b) <- x; c <- y; return (a,b,c)
+
      -- chose a direction for each click
      moves' <- for moves $ \move ->
-                 do dir <- select (U :| [D,L,R])
-                    return (move, dir)
+                 combine move <$> selectList [U,D,L,R]
 
      -- update the initial board given the chosen moves
      let bounds = puzzleBounds puzzle
-         board  = foldl' (\b (s,d) -> applyMove bounds b s d)
+         board  = foldl' (applyMove bounds)
                          (initialBoard puzzle)
                          moves'
 
      -- ensure that the target cell on the board is reached
-     assert (SparseMap.index (puzzleTarget puzzle) board)
+     assert (any (`SparseMap.index` board) (puzzleTarget puzzle))
 
      return moves'
 
@@ -113,16 +113,12 @@ existsSolution n puzzle =
 -- symbolic choices into the logical values of the cells of the
 -- board.
 applyMove ::
-  Coord               {- ^ board bounds          -} ->
-  Board               {- ^ current board state   -} ->
-  Select (Coord, Int) {- ^ move start and length -} ->
-  Select Dir          {- ^ move direction        -} ->
-  Board               {- ^ updated board state   -}
-applyMove bounds b square dir =
-  runSelect $
-    do (coord, n) <- square
-       d          <- dir
-       return (applyMove' bounds b coord n d)
+  Coord                    {- ^ board bounds                  -} ->
+  Board                    {- ^ current board state           -} ->
+  Select (Coord, Int, Dir) {- ^ move start, length, direction -} ->
+  Board                    {- ^ updated board state           -}
+applyMove bounds board =
+  runSelectWith (\(c, i, d) -> applyMove' bounds board c i d)
 
 
 -- | This function updates a board by placing the
@@ -135,8 +131,8 @@ applyMove' ::
   Int   {- ^ squares to place    -} ->
   Dir   {- ^ placement direction -} ->
   Board {- ^ updated board       -}
-applyMove' (Coord xmax ymax) board (Coord x y) n dir =
-  snd (foldl changeCell (fromIntegral n, board) positions)
+applyMove' (Coord xmax ymax) board (Coord x y) i dir =
+  snd (foldl changeCell (fromIntegral i, board) positions)
   where
     positions =
       case dir of
@@ -185,7 +181,7 @@ solveForMoves n p =
      case result of
 
        (Satisfied, Just solution) ->
-         do putStr (renderSolution p [(a,b,c) | ((a,b),c) <- solution])
+         do putStr (renderSolution p solution)
             return True
 
        (Unsatisfied, _) -> return False
@@ -232,7 +228,7 @@ fileDriver path =
 parsePuzzle :: String -> Puzzle
 parsePuzzle str = Puzzle target squares
   where
-    target = head [ c | (c, 'X') <- xs ]
+    target  = [ c | (c, 'X') <- xs ]
     squares = [ (c, digitToInt x) | (c,x) <- xs, isDigit x ]
 
     xs = [ (Coord x y, cel)
@@ -259,7 +255,7 @@ renderSolution puzzle solution =
 
     txt = SparseMap.fromList '.'
         $ concatMap expand
-        $ [ (Coord x y, "[+]") | Coord x y     <- [puzzleTarget puzzle] ]
+        $ [ (Coord x y, "[+]") | Coord x y     <- puzzleTarget  puzzle ]
        ++ [ (Coord x y, "[ ]") | (Coord x y,_) <- puzzleSquares puzzle ]
        ++ [ (Coord x y, [intToDigit d1, intToDigit d2, dirChar d])
              | (n, (Coord x y, _, d)) <- zip [1..] solution

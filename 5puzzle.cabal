@@ -142,5 +142,5 @@ executable Zhed
   main-is:             Zhed.hs
   hs-source-dirs:      .
   default-language:    Haskell2010
-  build-depends:       5puzzle, base, ersatz,
+  build-depends:       5puzzle, base, ersatz, containers,
                        time >=1.6 && <1.10
