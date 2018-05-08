@@ -17,6 +17,30 @@ in Ersatz. This is particularly useful for run-time defined possibilities.
 SparseMap supports the generalized Boolean typeclass and makes it easy
 to work with bit-maps (or more complex types than bit) over arbitrary keys.
 
+Building this repository
+------------------------
+
+The recommended way to build this repository is using `cabal-install` and
+GHC 8.2.2. Make sure you're using a recent version of `cabal-install`.
+
+
+```
+$ git clone https://github.com/glguy/5puzzle
+$ cd 5puzzle
+$ cabal new-build
+$ cabal new-run ToolName
+```
+
+The repository can also be built using [stack](https://docs.haskellstack.org/en/stable/README/)
+
+```
+$ git clone https://github.com/glguy/5puzzle
+$ cd 5puzzle
+$ stack setup
+$ stack build
+$ stack exec ToolName
+```
+
 Problems encoded
 ----------------
 
@@ -50,3 +74,5 @@ Problems encoded
    cards into 27 sets.
 
 * **Queens** - Solves the generalized [Eight queens puzzle](https://en.wikipedia.org/wiki/Eight_queens_puzzle)
+
+* **Zhed** - Solves an minimizes solutions to [Zhed](https://play.google.com/store/apps/details?id=com.groundcontrol.zhed&hl=en_US)

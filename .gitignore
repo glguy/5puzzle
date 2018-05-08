@@ -1,6 +1,5 @@
 .*.swp
 /dist
-stack.yaml
 .stack-work
 /output.svg
 /dist-newstyle
