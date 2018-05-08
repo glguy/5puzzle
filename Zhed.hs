@@ -53,10 +53,7 @@ existsSolution ::
   m [(Select (Coord, Int), Select Dir)] {- ^ ordered list of moves -}
 existsSolution n puzzle =
 
-  do let b0     = initialBoard puzzle
-         bounds = puzzleBounds puzzle
-
-     -- chose the order cells will be clicked
+  do -- chose the order cells will be clicked
      moves  <- selectPermutationN n (puzzleSquares puzzle)
 
      -- chose a direction for each click
@@ -65,10 +62,13 @@ existsSolution n puzzle =
                     return (move, dir)
 
      -- update the initial board given the chosen moves
-     let bN = foldl' (\b (s,d) -> applyMove bounds b s d) b0 moves'
+     let bounds = puzzleBounds puzzle
+         board  = foldl' (\b (s,d) -> applyMove bounds b s d)
+                         (initialBoard puzzle)
+                         moves'
 
      -- ensure that the target cell on the board is reached
-     assert (SparseMap.index (puzzleTarget puzzle) bN)
+     assert (SparseMap.index (puzzleTarget puzzle) board)
 
      return moves'
 
@@ -127,6 +127,8 @@ changeCell (remaining, board) coord = (remaining', board')
     board'     = SparseMap.insert coord cell' board
 
 ------------------------------------------------------------------------
+-- Solver harness
+------------------------------------------------------------------------
 
 -- | Solve the given puzzle in a specific number of moves if possible.
 solveForMoves ::
@@ -142,14 +144,18 @@ solveForMoves n p =
      result    <- solveWith minisat (existsSolution n p)
      endTime   <- getCurrentTime
 
+     -- print elapsed time
      putStrLn (show (endTime `diffUTCTime` startTime))
 
      case result of
+
        (Satisfied, Just solution) ->
-         do let solution' = [(a,b,c) | ((a,b),c) <- solution]
-            putStr (renderSolution p solution')
+         do putStr (renderSolution p [(a,b,c) | ((a,b),c) <- solution])
             return True
+
        (Unsatisfied, _) -> return False
+
+       -- probably would indicate a bug in ersatz
        other -> fail ("Unexpected solver result: " ++ show other)
 
 
@@ -162,7 +168,11 @@ solve puzzle = loop (length (puzzleSquares puzzle))
          when possible (loop (n-1))
 
 ------------------------------------------------------------------------
+-- Driver logic
+------------------------------------------------------------------------
 
+-- | Entry point of the program. Treats command-line arguments as file
+-- names of puzzles that need to be solved.
 main :: IO ()
 main =
   do args <- getArgs
@@ -173,13 +183,17 @@ main =
 
 -- | Read the puzzle file stored at the given path, parse it, and solve it.
 fileDriver ::
-  FilePath {- ^ path to puzzle file -} ->
-  IO ()
+  FilePath {- ^ path to puzzle file                     -} ->
+  IO ()    {- ^ read, parse, solve and print the puzzle -}
 fileDriver path =
   do str <- readFile path
      solve (parsePuzzle str)
 
+------------------------------------------------------------------------
+-- Input format
+------------------------------------------------------------------------
 
+-- | Parse a puzzle string.
 parsePuzzle :: String -> Puzzle
 parsePuzzle str = Puzzle target squares
   where
@@ -191,6 +205,8 @@ parsePuzzle str = Puzzle target squares
              , (x,cel) <- zip [0..] row
              ]
 
+------------------------------------------------------------------------
+-- Output format
 ------------------------------------------------------------------------
 
 -- | Produce a rendering of the solution to a puzzle showing which order
