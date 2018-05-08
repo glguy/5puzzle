@@ -1,12 +1,13 @@
 module Main where
 
+import Control.Monad (when)
 import Data.Char (digitToInt, isDigit, intToDigit)
 import Data.Foldable (foldl', traverse_)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Traversable (for)
 import Prelude hiding ((&&), (||), not)
 import System.Environment (getArgs)
-import System.IO (hPutStr, hPutStrLn, stderr)
+import System.IO (hFlush, stdout)
 
 import Data.Time
 
@@ -129,34 +130,36 @@ changeCell (remaining, board) coord = (remaining', board')
 
 -- | Solve the given puzzle in a specific number of moves if possible.
 solveForMoves ::
-  Int    {- ^ solution length   -} ->
-  Puzzle {- ^ puzzle parameters -} ->
-  IO (Maybe [(Coord,Int,Dir)])
+  Int     {- ^ solution length          -} ->
+  Puzzle  {- ^ puzzle parameters        -} ->
+  IO Bool {- ^ True when solution found -}
 solveForMoves n p =
-  do hPutStr stderr ("Attempting solution with " ++ show n ++ " moves: ")
+
+  do putStr ("Attempting solution with " ++ show n ++ " moves: ")
+     hFlush stdout
+
      startTime <- getCurrentTime
      result    <- solveWith minisat (existsSolution n p)
      endTime   <- getCurrentTime
-     hPutStrLn stderr (show (endTime `diffUTCTime` startTime))
+
+     putStrLn (show (endTime `diffUTCTime` startTime))
+
      case result of
        (Satisfied, Just solution) ->
-         return (Just [(a,b,c) | ((a,b),c) <- solution])
-       (Unsatisfied, _) -> return Nothing
+         do let solution' = [(a,b,c) | ((a,b),c) <- solution]
+            putStr (renderSolution p solution')
+            return True
+       (Unsatisfied, _) -> return False
        other -> fail ("Unexpected solver result: " ++ show other)
 
 
 -- | Solve the given puzzle in as few moves as possible.
-solve :: Puzzle -> IO (Maybe [(Coord, Int, Dir)])
-solve puzzle =
-  do let n = length (puzzleSquares puzzle)
-     traverse (improve n) =<< solveForMoves n puzzle
+solve :: Puzzle -> IO ()
+solve puzzle = loop (length (puzzleSquares puzzle))
   where
-    improve n prev =
-      do let n' = n-1
-         mb <- solveForMoves n' puzzle
-         case mb of
-           Nothing -> return prev
-           Just better -> improve n' better
+    loop n =
+      do possible <- solveForMoves n puzzle
+         when possible (loop (n-1))
 
 ------------------------------------------------------------------------
 
@@ -174,14 +177,7 @@ fileDriver ::
   IO ()
 fileDriver path =
   do str <- readFile path
-     solveAndPrint (parsePuzzle str)
-
-
--- | Solve the given puzzle and print out the solution steps.
-solveAndPrint :: Puzzle -> IO ()
-solveAndPrint p =
-  do Just result <- solve p
-     putStrLn (renderSolution p result)
+     solve (parsePuzzle str)
 
 
 parsePuzzle :: String -> Puzzle
@@ -202,14 +198,14 @@ parsePuzzle str = Puzzle target squares
 renderSolution :: Puzzle -> [(Coord, Int, Dir)] -> String
 renderSolution puzzle solution =
   unlines [ [ SparseMap.index (Coord x y) txt
-                | x <- [0 .. 3*xMax+2]]
+                | x <- [0 .. 4*xMax+2]]
               | y <- [0..yMax] ]
   where
     Coord xMax yMax = puzzleBounds puzzle
 
     dirChar d = case d of U -> '^'; D -> 'v'; L -> '<'; R -> '>'
 
-    expand (Coord x y, s) = [ (Coord (3*x+i) y, c) | (i,c) <- zip [0..] s ]
+    expand (Coord x y, s) = [ (Coord (4*x+i) y, c) | (i,c) <- zip [0..] s ]
 
     txt = SparseMap.fromList '.'
         $ concatMap expand
