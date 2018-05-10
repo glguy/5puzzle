@@ -37,6 +37,8 @@ import Data.Traversable (for)
 import Prelude hiding ((&&), (||), not, any)
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
+import System.Console.GetOpt
+import System.Exit
 
 import Data.Time
 
@@ -131,9 +133,9 @@ applyMove' ::
   Int   {- ^ squares to place    -} ->
   Dir   {- ^ placement direction -} ->
   Board {- ^ updated board       -}
-applyMove' (Coord xmax ymax) board (Coord x y) i dir =
-  snd (foldl changeCell (fromIntegral i, board) positions)
+applyMove' (Coord xmax ymax) board (Coord x y) i dir = out
   where
+    (_,_,out) = foldl changeCell (i, fromIntegral i, board) positions
     positions =
       case dir of
         U -> [ Coord x z | z <- [y-1, y-2 .. 0] ]
@@ -146,13 +148,13 @@ applyMove' (Coord xmax ymax) board (Coord x y) i dir =
 -- any cells remaining to be placed. Updated count will be
 -- decremented in a cell was placed.
 changeCell ::
-  (Bits, Board) {- ^ initial count and initial board -} ->
-  Coord         {- ^ focused coordinate              -} ->
-  (Bits, Board) {- ^ updated count and updated board -}
-changeCell (remaining, board) coord = (remaining', board')
+  (Int, Bits, Board) {- ^ initial count and initial board -} ->
+  Coord              {- ^ focused coordinate              -} ->
+  (Int, Bits, Board) {- ^ updated count and updated board -}
+changeCell (actual, remaining, board) coord = (actual-1, remaining', board')
   where
     cell  = SparseMap.index coord board
-    cell' = cell || remaining /== 0
+    cell' = bool (actual > 0) || cell || remaining /== 0
 
     remaining' = chooseBits (remaining - 1) remaining cell
     board'     = SparseMap.insert coord cell' board
@@ -191,8 +193,11 @@ solveForMoves n p =
 
 
 -- | Solve the given puzzle in as few moves as possible.
-solve :: Puzzle -> IO ()
-solve puzzle = loop (length (puzzleSquares puzzle))
+solve :: Options -> Puzzle -> IO ()
+solve opts puzzle =
+  case optMoves opts of
+    Just n  -> solveForMoves n puzzle >> return ()
+    Nothing -> loop (length (puzzleSquares puzzle))
   where
     loop n =
       do possible <- solveForMoves n puzzle
@@ -206,19 +211,44 @@ solve puzzle = loop (length (puzzleSquares puzzle))
 -- names of puzzles that need to be solved.
 main :: IO ()
 main =
-  do args <- getArgs
-     case args of
-       [] -> putStrLn "No puzzles"
-       xs -> traverse_ fileDriver xs
+  do (opts, files) <- getOptions
+     traverse_ (fileDriver opts) files
 
 
 -- | Read the puzzle file stored at the given path, parse it, and solve it.
 fileDriver ::
+  Options  {- ^ configuration options                   -} ->
   FilePath {- ^ path to puzzle file                     -} ->
   IO ()    {- ^ read, parse, solve and print the puzzle -}
-fileDriver path =
+fileDriver opts path =
   do str <- readFile path
-     solve (parsePuzzle str)
+     solve opts (parsePuzzle str)
+
+------------------------------------------------------------------------
+-- Command-line options parsing
+------------------------------------------------------------------------
+
+data Options = Options { optMoves :: Maybe Int }
+
+getOptions :: IO (Options, [String])
+getOptions =
+  do args <- getArgs
+     case getOpt RequireOrder options args of
+       (fs, xs, []) -> return (opts, xs)
+         where opts = foldl' (flip id) defaultOptions fs
+       (_, _, errs) ->
+         do traverse_ putStr (usageInfo "Zhed [FLAGS] FILENAMES..." options : errs)
+            exitFailure
+
+defaultOptions :: Options
+defaultOptions = Options { optMoves = Nothing }
+
+options :: [OptDescr (Options -> Options)]
+options =
+  [ Option ['n'] ["moves"]
+      (OptArg (\str o -> o { optMoves = fmap read str }) "NUMBER")
+      "Search using a specific number of moves"
+  ]
 
 ------------------------------------------------------------------------
 -- Input format
