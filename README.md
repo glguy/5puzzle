@@ -21,8 +21,9 @@ Building this repository
 ------------------------
 
 The recommended way to build this repository is using `cabal-install` and
-GHC 8.2.2. Make sure you're using a recent version of `cabal-install`.
+GHC 8.4.2. Make sure you're using a recent version of `cabal-install`.
 
+[Haskell Platform](https://www.haskell.org/platform/)
 
 ```
 $ git clone https://github.com/glguy/5puzzle
