@@ -33,6 +33,7 @@ module Main where
 import Control.Monad (when)
 import Data.Char (digitToInt, isDigit, intToDigit)
 import Data.Foldable (foldl', traverse_)
+import Data.List (intercalate)
 import Data.Traversable (for)
 import Prelude hiding ((&&), (||), not, any)
 import System.Environment (getArgs)
@@ -194,14 +195,14 @@ solveForMoves n p =
 
 -- | Solve the given puzzle in as few moves as possible.
 solve :: Options -> Puzzle -> IO ()
-solve opts puzzle =
-  case optMoves opts of
-    Just n  -> solveForMoves n puzzle >> return ()
-    Nothing -> loop (length (puzzleSquares puzzle))
+solve opts puzzle = loop initial
   where
+    initial = case optMoves opts of
+                Just n  -> n
+                Nothing -> length (puzzleSquares puzzle)
     loop n =
       do possible <- solveForMoves n puzzle
-         when possible (loop (n-1))
+         when (possible && optMinimize opts) (loop (n-1))
 
 ------------------------------------------------------------------------
 -- Driver logic
@@ -221,15 +222,20 @@ fileDriver ::
   FilePath {- ^ path to puzzle file                     -} ->
   IO ()    {- ^ read, parse, solve and print the puzzle -}
 fileDriver opts path =
-  do str <- readFile path
+  do putStrLn ("Processing: " ++ path)
+     str <- readFile path
      solve opts (parsePuzzle str)
 
 ------------------------------------------------------------------------
 -- Command-line options parsing
 ------------------------------------------------------------------------
 
-data Options = Options { optMoves :: Maybe Int }
+data Options = Options
+  { optMoves :: Maybe Int
+  , optMinimize :: Bool }
 
+-- | Load the command arguments and process the flags returning the file
+-- name parameters and parsed options.
 getOptions :: IO (Options, [String])
 getOptions =
   do args <- getArgs
@@ -240,14 +246,20 @@ getOptions =
          do traverse_ putStr (usageInfo "Zhed [FLAGS] FILENAMES..." options : errs)
             exitFailure
 
+-- | Default solver options.
 defaultOptions :: Options
-defaultOptions = Options { optMoves = Nothing }
+defaultOptions = Options
+  { optMoves    = Nothing
+  , optMinimize = True }
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['n'] ["moves"]
-      (OptArg (\str o -> o { optMoves = fmap read str }) "NUMBER")
+  [ Option ['n'] []
+      (ReqArg (\str o -> o { optMoves = Just (read str) }) "NUMBER")
       "Search using a specific number of moves"
+  , Option ['x'] []
+      (NoArg (\o -> o { optMinimize = False }))
+      "Disable automatic minimization search"
   ]
 
 ------------------------------------------------------------------------
@@ -274,17 +286,15 @@ parsePuzzle str = Puzzle target squares
 -- to click each square and in which direction.
 renderSolution :: Puzzle -> [(Coord, Int, Dir)] -> String
 renderSolution puzzle solution =
-  unlines [ [ SparseMap.index (Coord x y) txt | x <- [0 .. 3*xMax+2]]
+  unlines [ intercalate " "
+            [ SparseMap.index (Coord x y) txt | x <- [0 .. xMax]]
           | y <- [0..yMax] ]
   where
     Coord xMax yMax = puzzleBounds puzzle
 
     dirChar d = case d of U -> '^'; D -> 'v'; L -> '<'; R -> '>'
 
-    expand (Coord x y, s) = [ (Coord (3*x+i) y, c) | (i,c) <- zip [0..] s ]
-
-    txt = SparseMap.fromList '.'
-        $ concatMap expand
+    txt = SparseMap.fromList " . "
         $ [ (Coord x y, "[+]") | Coord x y     <- puzzleTarget  puzzle ]
        ++ [ (Coord x y, "[ ]") | (Coord x y,_) <- puzzleSquares puzzle ]
        ++ [ (Coord x y, [intToDigit d1, intToDigit d2, dirChar d])
