@@ -126,15 +126,27 @@ applyMove' ::
   Int   {- ^ squares to place    -} ->
   Dir   {- ^ placement direction -} ->
   Board {- ^ updated board       -}
-applyMove' (Coord xmax ymax) board (Coord x y) i dir = out
+applyMove' bounds board start i dir = out
   where
-    (_,_,out) = foldl changeCell (i, fromIntegral i, board) positions
-    positions =
-      case dir of
-        U -> [ Coord x z | z <- [y-1, y-2 .. 0] ]
-        D -> [ Coord x z | z <- [y+1   .. ymax] ]
-        L -> [ Coord z y | z <- [x-1, x-2 .. 0] ]
-        R -> [ Coord z y | z <- [x+1   .. xmax] ]
+    (_,_,out) = foldl changeCell
+                      (i, fromIntegral i, board)
+                      (coordsForDir bounds start dir)
+
+
+-- | Compute the list of coordinates moving in the given direction
+-- from a starting point until the boundary of the board is reached.
+-- The starting point is not included in the list.
+coordsForDir ::
+  Coord {- ^ bounds    -} ->
+  Coord {- ^ start     -} ->
+  Dir   {- ^ direction -} ->
+  [Coord]
+coordsForDir (Coord xmax ymax) (Coord x y) dir =
+  case dir of
+    U -> [ Coord x z | z <- [y-1, y-2 .. 0] ]
+    D -> [ Coord x z | z <- [y+1   .. ymax] ]
+    L -> [ Coord z y | z <- [x-1, x-2 .. 0] ]
+    R -> [ Coord z y | z <- [x+1   .. xmax] ]
 
 
 -- | Update the cell at the given coordinate if there are

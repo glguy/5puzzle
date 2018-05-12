@@ -21,6 +21,7 @@ import System.Exit
 
 import Data.Time
 
+import Zhed.Picture
 import Zhed.Puzzle
 
 import qualified SparseMap
@@ -50,6 +51,7 @@ solveForMoves n p =
 
        Just solution ->
          do putStr (renderSolution p solution)
+            renderSolutionSVG p solution "output.svg"
             return True
 
        Nothing -> return False
