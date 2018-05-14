@@ -32,10 +32,11 @@ import qualified SparseMap
 
 -- | Solve the given puzzle in a specific number of moves if possible.
 solveForMoves ::
-  Int     {- ^ solution length          -} ->
-  Puzzle  {- ^ puzzle parameters        -} ->
-  IO Bool {- ^ True when solution found -}
-solveForMoves n p =
+  Int            {- ^ solution length                              -} ->
+  Puzzle         {- ^ puzzle parameters                            -} ->
+  Maybe FilePath {- ^ optional path to write SVG rendered solution -} ->
+  IO Bool        {- ^ True when solution found                     -}
+solveForMoves n p svgPath =
 
   do putStr ("Attempting solution with " ++ show n ++ " moves: ")
      hFlush stdout
@@ -51,7 +52,7 @@ solveForMoves n p =
 
        Just solution ->
          do putStr (renderSolution p solution)
-            renderSolutionSVG p solution "output.svg"
+            traverse_ (renderSolutionSVG p solution) svgPath
             return True
 
        Nothing -> return False
@@ -65,7 +66,7 @@ solve opts puzzle = loop initial
                 Just n  -> n
                 Nothing -> length (puzzleSquares puzzle)
     loop n =
-      do possible <- solveForMoves n puzzle
+      do possible <- solveForMoves n puzzle (optSvgOutput opts)
          when (possible && optMinimize opts) (loop (n-1))
 
 ------------------------------------------------------------------------
@@ -96,7 +97,8 @@ fileDriver opts path =
 
 data Options = Options
   { optMoves :: Maybe Int
-  , optMinimize :: Bool }
+  , optMinimize :: Bool
+  , optSvgOutput :: Maybe FilePath }
 
 -- | Load the command arguments and process the flags returning the file
 -- name parameters and parsed options.
@@ -114,7 +116,8 @@ getOptions =
 defaultOptions :: Options
 defaultOptions = Options
   { optMoves    = Nothing
-  , optMinimize = True }
+  , optMinimize = True
+  , optSvgOutput = Nothing }
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -124,6 +127,9 @@ options =
   , Option ['x'] []
       (NoArg (\o -> o { optMinimize = False }))
       "Disable automatic minimization search"
+  , Option ['s'] []
+      (ReqArg (\path o -> o { optSvgOutput = Just path }) "PATH")
+      "Output path for SVG rendered solutions"
   ]
 
 ------------------------------------------------------------------------

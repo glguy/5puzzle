@@ -3,6 +3,8 @@ module Zhed.Picture where
 import Diagrams.Prelude
 import Diagrams.Backend.SVG
 
+import qualified Data.Map as Map
+
 import Zhed.Puzzle
 
 cellSize = 50 :: Double
@@ -12,14 +14,14 @@ renderSolutionSVG puzzle solution path = renderSVG path sz diagram
 
   where
   Coord xmax ymax = puzzleBounds puzzle
-  sz = mkSizeSpec (V2 (Just ( (fromIntegral xmax+1) * cellSize::Double))
-                      (Just ( (fromIntegral ymax+1) * cellSize)))
+  sz = mkSizeSpec (V2 Nothing Nothing)
 
   used = [ c | (c,_,_) <- solution ]
 
   subdiagrams
-    = [ (c, targetSquare) | c <- puzzleTarget puzzle ]
-    ++ [ (c, unusedSquare) | (c,_) <- puzzleSquares puzzle, c `notElem` used]
+     = Map.fromList
+     $ [ (c, plainSquare blue) | c <- puzzleTarget puzzle ]
+    ++ [ (c, plainSquare green) | (c,_) <- puzzleSquares puzzle, c `notElem` used]
     ++ [ (c,  numLabel i <> pointedSquare dir) | (i,(c,_n,dir)) <- zip [1::Int ..] solution ]
 
   numLabel :: Int -> Diagram SVG
@@ -29,31 +31,24 @@ renderSolutionSVG puzzle solution path = renderSVG path sz diagram
   diagram =
     mconcat [ translate (V2 ( fromIntegral x * cellSize)
                             (-fromIntegral y * cellSize))
-                        d
-            | (Coord x y, d) <- subdiagrams ]
+                        (Map.findWithDefault (plainSquare lightgray # lc lightgray) (Coord x y) subdiagrams)
+            | x <- [0..xmax], y <- [0..ymax] ]
 
-targetSquare :: Diagram SVG
-targetSquare
-  = pad 5
-  $ fc blue
-  $ square (40 :: Double)
-
-unusedSquare :: Diagram SVG
-unusedSquare
-  = pad 5
-  $ fc green
+plainSquare :: Colour Double -> Diagram SVG
+plainSquare c
+  = fc c
   $ square (40 :: Double)
 
 pointedSquare :: Dir -> Diagram SVG
 pointedSquare dir
-  = rotateBy rot
+  = rotateBy (rot/4)
   $ fc yellow
   $ strokeLocLoop
   $ fromVertices
   $ map (P . r2) [ (-20,-20), (0,-25), (20,-20), (20,20), (-20,20), (-20,-20) ]
   where
     rot = case dir of
-            U -> (2/4)
-            R -> (1/4)
-            D -> (0/4)
-            L -> (3/4)
+            D -> 0
+            R -> 1
+            U -> 2
+            L -> 3
