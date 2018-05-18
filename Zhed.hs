@@ -10,9 +10,9 @@ Console-based driver for "Zhed.Puzzle"
 -}
 module Main where
 
-import Control.Monad (when)
+import Control.Monad (when, unless)
 import Data.Char (intToDigit)
-import Data.Foldable (foldl', traverse_)
+import Data.Foldable (traverse_)
 import Data.List (intercalate)
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
@@ -96,40 +96,53 @@ fileDriver opts path =
 ------------------------------------------------------------------------
 
 data Options = Options
-  { optMoves :: Maybe Int
-  , optMinimize :: Bool
-  , optSvgOutput :: Maybe FilePath }
+  { optMoves     :: Maybe Int
+  , optMinimize  :: Bool
+  , optSvgOutput :: Maybe FilePath
+  , optHelp      :: Bool }
 
 -- | Load the command arguments and process the flags returning the file
 -- name parameters and parsed options.
 getOptions :: IO (Options, [String])
 getOptions =
+
   do args <- getArgs
-     case getOpt RequireOrder options args of
-       (fs, xs, []) -> return (opts, xs)
-         where opts = foldl' (flip id) defaultOptions fs
-       (_, _, errs) ->
-         do traverse_ putStr (usageInfo "Zhed [FLAGS] FILENAMES..." options : errs)
-            exitFailure
+
+     let (flags, files, errors) = getOpt RequireOrder options args
+         opts = foldl (flip id) defaultOptions flags
+
+     unless (null errors) $
+       do traverse_ putStr ("Bad command options (-h for help)\n" : errors)
+          exitFailure
+
+     when (optHelp opts) $
+       do putStr (usageInfo "Zhed [FLAGS] FILENAMES..." options)
+          exitSuccess
+
+     return (opts, files)
 
 -- | Default solver options.
 defaultOptions :: Options
 defaultOptions = Options
-  { optMoves    = Nothing
-  , optMinimize = True
-  , optSvgOutput = Nothing }
+  { optMoves     = Nothing
+  , optMinimize  = True
+  , optSvgOutput = Nothing
+  , optHelp      = False }
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['n'] []
+  [ Option ['h'] ["help"]
+      (NoArg (\o -> o { optHelp = True }))
+      "Show help message"
+  , Option ['n'] ["moves"]
       (ReqArg (\str o -> o { optMoves = Just (read str) }) "NUMBER")
       "Search using a specific number of moves"
+  , Option ['s'] ["svg"]
+      (ReqArg (\path o -> o { optSvgOutput = Just path }) "PATH")
+      "Output path for SVG rendered solutions"
   , Option ['x'] []
       (NoArg (\o -> o { optMinimize = False }))
       "Disable automatic minimization search"
-  , Option ['s'] []
-      (ReqArg (\path o -> o { optSvgOutput = Just path }) "PATH")
-      "Output path for SVG rendered solutions"
   ]
 
 ------------------------------------------------------------------------
