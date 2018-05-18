@@ -17,6 +17,25 @@ in Ersatz. This is particularly useful for run-time defined possibilities.
 SparseMap supports the generalized Boolean typeclass and makes it easy
 to work with bit-maps (or more complex types than bit) over arbitrary keys.
 
+Install minisat
+---------------
+
+These solutions use the `minisat` program to actually compute solutions
+to the generated SAT problems. You'll need to install this tool. Below are
+some examples of how to do this.
+
+Homebrew (macOS)
+
+```
+$ brew install minisat
+```
+
+Debian Linux
+
+```
+$ apt install minisat
+```
+
 Building this repository
 ------------------------
 
