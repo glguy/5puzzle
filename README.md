@@ -64,6 +64,12 @@ $ stack exec ToolName
 Problems encoded
 ----------------
 
+* **Coin** - Finds a way to use a balance scale to find one coin that doesn't
+  match the others in a set.
+
+* **Handshakes** - Solves a puzzle where a couple goes to a party and everyone
+  shakes hands when they arrive.
+
 * **Cube** - Solves a puzzle where 17 rectangular solids are placed within
   a 5x5 cube.
 
