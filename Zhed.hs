@@ -10,7 +10,7 @@ Console-based driver for "Zhed.Puzzle"
 -}
 module Main where
 
-import Control.Monad (when, unless)
+import Control.Monad (foldM, unless, when)
 import Data.Char (intToDigit)
 import Data.Foldable (traverse_)
 import Data.List (intercalate)
@@ -18,6 +18,7 @@ import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 import System.Console.GetOpt
 import System.Exit
+import Text.Read (readMaybe)
 
 import Data.Time
 
@@ -109,7 +110,12 @@ getOptions =
   do args <- getArgs
 
      let (flags, files, errors) = getOpt RequireOrder options args
-         opts = foldl (flip id) defaultOptions flags
+
+     opts <- case foldM (flip id) defaultOptions flags of
+               Right opts -> return opts
+               Left e -> do putStrLn "Bad command options (-h for help)"
+                            putStrLn e
+                            exitFailure
 
      unless (null errors) $
        do traverse_ putStr ("Bad command options (-h for help)\n" : errors)
@@ -129,21 +135,35 @@ defaultOptions = Options
   , optSvgOutput = Nothing
   , optHelp      = False }
 
-options :: [OptDescr (Options -> Options)]
+-- | Possible command line options. Each maps to an update function on
+-- an options value that can return an updated options value or an error
+-- message.
+options :: [OptDescr (Options -> Either String Options)]
 options =
+
   [ Option ['h'] ["help"]
-      (NoArg (\o -> o { optHelp = True }))
+      (NoArg (\o -> Right o { optHelp = True }))
       "Show help message"
+
   , Option ['n'] ["moves"]
-      (ReqArg (\str o -> o { optMoves = Just (read str) }) "NUMBER")
+      (ReqArg (\str o -> fmap (\n -> o { optMoves = Just n }) (parseNArg str)) "NUMBER")
       "Search using a specific number of moves"
+
   , Option ['s'] ["svg"]
-      (ReqArg (\path o -> o { optSvgOutput = Just path }) "PATH")
+      (ReqArg (\path o -> Right o { optSvgOutput = Just path }) "PATH")
       "Output path for SVG rendered solutions"
+
   , Option ['x'] []
-      (NoArg (\o -> o { optMinimize = False }))
+      (NoArg (\o -> Right o { optMinimize = False }))
       "Disable automatic minimization search"
   ]
+  where
+    -- The number of moves should be non-negative and parse as an Int
+    parseNArg str =
+      case readMaybe str of
+        Nothing            -> Left "failed to parse moves as integer"
+        Just n | n < 0     -> Left "expected non-negative number of moves"
+               | otherwise -> Right n
 
 ------------------------------------------------------------------------
 -- Output format
