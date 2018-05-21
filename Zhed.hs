@@ -32,37 +32,6 @@ import qualified SparseMap
 import Parallel
 
 ------------------------------------------------------------------------
--- Solver harness
-------------------------------------------------------------------------
-
--- | Solve the given puzzle in a specific number of moves if possible.
-solveForMoves ::
-  Int            {- ^ solution length                              -} ->
-  Puzzle         {- ^ puzzle parameters                            -} ->
-  Maybe FilePath {- ^ optional path to write SVG rendered solution -} ->
-  IO Bool        {- ^ True when solution found                     -}
-solveForMoves n p svgPath =
-
-  do putStr ("Attempting solution with " ++ show n ++ " moves: ")
-     hFlush stdout
-
-     startTime <- getCurrentTime
-     result    <- solvePuzzle n p
-     endTime   <- getCurrentTime
-
-     -- print elapsed time
-     putStrLn (show (endTime `diffUTCTime` startTime))
-
-     case result of
-
-       Just solution ->
-         do putStr (renderSolution p solution)
-            traverse_ (renderSolutionSVG p solution) svgPath
-            return True
-
-       Nothing -> return False
-
-------------------------------------------------------------------------
 -- Driver logic
 ------------------------------------------------------------------------
 
@@ -140,7 +109,7 @@ options =
       "Show help message"
 
   , Option ['n'] ["moves"]
-      (ReqArg (\str o -> fmap (\n -> o { optMoves = Just n }) (parseNArg str)) "NUMBER")
+      (ReqArg (\str o -> fmap (\n -> o { optMoves = Just n }) (parseNumber str)) "NUMBER")
       "Search using a specific number of moves"
 
   , Option ['s'] ["svg"]
@@ -152,22 +121,14 @@ options =
       "Disable automatic minimization search"
 
   , Option ['j'] []
-      (ReqArg (\str o -> fmap (\n -> o { optParallel = n }) (parseJArg str)) "NUMBER")
+      (ReqArg (\str o -> fmap (\n -> o { optParallel = n }) (parseNumber str)) "NUMBER")
       "Disable automatic minimization search"
   ]
   where
-    -- The number of moves should be non-negative and parse as an Int
-    parseNArg str =
+    parseNumber str =
       case readMaybe str of
-        Nothing            -> Left "failed to parse moves as integer"
-        Just n | n < 0     -> Left "expected non-negative number of moves"
-               | otherwise -> Right n
-
-    -- The number of moves should be non-negative and parse as an Int
-    parseJArg str =
-      case readMaybe str of
-        Nothing            -> Left "failed to parse jobs as integer"
-        Just n | n < 1     -> Left "expected positive number of jobs"
+        Nothing            -> Left "failed to parse number"
+        Just n | n < 1     -> Left "expected positive number"
                | otherwise -> Right n
 
 ------------------------------------------------------------------------
