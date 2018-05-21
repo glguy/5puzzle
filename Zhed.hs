@@ -10,10 +10,13 @@ Console-based driver for "Zhed.Puzzle"
 -}
 module Main where
 
+import Control.Exception (fromException, AsyncException(ThreadKilled))
 import Control.Monad (foldM, unless, when)
 import Data.Char (intToDigit)
-import Data.Foldable (traverse_)
+import Data.Foldable (traverse_, find)
 import Data.List (intercalate)
+import Data.Maybe (isNothing)
+import qualified Data.IntMap as IntMap
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 import System.Console.GetOpt
@@ -26,6 +29,7 @@ import Zhed.Picture
 import Zhed.Puzzle
 
 import qualified SparseMap
+import Parallel
 
 ------------------------------------------------------------------------
 -- Solver harness
@@ -58,18 +62,6 @@ solveForMoves n p svgPath =
 
        Nothing -> return False
 
-
--- | Solve the given puzzle in as few moves as possible.
-solve :: Options -> Puzzle -> IO ()
-solve opts puzzle = loop initial
-  where
-    initial = case optMoves opts of
-                Just n  -> n
-                Nothing -> length (puzzleSquares puzzle)
-    loop n =
-      do possible <- solveForMoves n puzzle (optSvgOutput opts)
-         when (possible && optMinimize opts) (loop (n-1))
-
 ------------------------------------------------------------------------
 -- Driver logic
 ------------------------------------------------------------------------
@@ -90,7 +82,7 @@ fileDriver ::
 fileDriver opts path =
   do putStrLn ("Processing: " ++ path)
      str <- readFile path
-     solve opts (parsePuzzle str)
+     parallelDriver opts (parsePuzzle str)
 
 ------------------------------------------------------------------------
 -- Command-line options parsing
@@ -100,7 +92,8 @@ data Options = Options
   { optMoves     :: Maybe Int
   , optMinimize  :: Bool
   , optSvgOutput :: Maybe FilePath
-  , optHelp      :: Bool }
+  , optHelp      :: Bool
+  , optParallel  :: Int }
 
 -- | Load the command arguments and process the flags returning the file
 -- name parameters and parsed options.
@@ -133,7 +126,8 @@ defaultOptions = Options
   { optMoves     = Nothing
   , optMinimize  = True
   , optSvgOutput = Nothing
-  , optHelp      = False }
+  , optHelp      = False
+  , optParallel  = 1 }
 
 -- | Possible command line options. Each maps to an update function on
 -- an options value that can return an updated options value or an error
@@ -156,6 +150,10 @@ options =
   , Option ['x'] []
       (NoArg (\o -> Right o { optMinimize = False }))
       "Disable automatic minimization search"
+
+  , Option ['j'] []
+      (ReqArg (\str o -> fmap (\n -> o { optParallel = n }) (parseJArg str)) "NUMBER")
+      "Disable automatic minimization search"
   ]
   where
     -- The number of moves should be non-negative and parse as an Int
@@ -163,6 +161,13 @@ options =
       case readMaybe str of
         Nothing            -> Left "failed to parse moves as integer"
         Just n | n < 0     -> Left "expected non-negative number of moves"
+               | otherwise -> Right n
+
+    -- The number of moves should be non-negative and parse as an Int
+    parseJArg str =
+      case readMaybe str of
+        Nothing            -> Left "failed to parse jobs as integer"
+        Just n | n < 1     -> Left "expected positive number of jobs"
                | otherwise -> Right n
 
 ------------------------------------------------------------------------
@@ -187,3 +192,45 @@ renderSolution puzzle solution =
        ++ [ (Coord x y, [intToDigit d1, intToDigit d2, dirChar d])
              | (n, (Coord x y, _, d)) <- zip [1..] solution
              , let (d1,d2) = quotRem n 10 ]
+
+------------------------------------------------------------------------
+-- Parallel logic
+------------------------------------------------------------------------
+
+parallelDriver ::
+  Options ->
+  Puzzle {- ^ puzzle parameters -} ->
+  IO ()
+parallelDriver opts puzzle =
+  do let n = case optMoves opts of
+               Just n  -> n
+               Nothing -> length (puzzleSquares puzzle)
+         sizes | optMinimize opts = [n, n-1 .. 0]
+               | otherwise        = [n]
+         tasks = [ parallelTask i puzzle | i <- sizes]
+         isDone (_, _, result) = isNothing result
+
+     let summarize (Failed e) =
+           case fromException e of
+             Just ThreadKilled -> "canceled"
+             _                 -> "failed"
+         summarize Running{} = "running"
+         summarize (Completed (_, elapsed, Nothing)) = show elapsed ++ "!"
+         summarize (Completed (_, elapsed, Just{})) = show elapsed
+
+     parallelSearch (optParallel opts) isDone tasks $ \statuses ->
+       do putStrLn $ unwords $ map summarize $ IntMap.elems statuses
+          case reverse [x | Completed (_,_,Just x) <- IntMap.elems statuses ] of
+            x : _ -> do putStr (renderSolution puzzle x)
+                        traverse_ (renderSolutionSVG puzzle x) (optSvgOutput opts)
+            []    -> return ()
+
+
+
+parallelTask :: Int -> Puzzle -> IO (Int, NominalDiffTime, Maybe [(Coord, Int, Dir)])
+parallelTask n p =
+  do startTime <- getCurrentTime
+     result    <- solvePuzzle n p
+     endTime   <- getCurrentTime
+     let elapsed = endTime `diffUTCTime` startTime
+     return (n, elapsed, result)
