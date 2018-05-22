@@ -4,7 +4,9 @@
 name:                5puzzle
 version:             0.1.0.0
 synopsis:            Solutions to problems focused on covering a board with Ersatz
-description:         Solutions to problems focused on covering a board with Ersatz
+description:         This project showcases solutions to many different puzzle problems
+                     which can be reduced to SAT to have solutions found. Problems are
+                     encoded using the Ersatz library and are then solved using minisat.
 license:             ISC
 license-file:        LICENSE
 author:              Eric Mertens
@@ -13,8 +15,8 @@ copyright:           2016 Eric Mertens
 category:            Game
 build-type:          Simple
 extra-source-files:  ChangeLog.md README.md
-cabal-version:       >=1.10
-tested-with:         GHC==8.0.1
+cabal-version:       1.12
+tested-with:         GHC==8.4.2, GHC==8.2.2, GHC==8.0.2
 
 source-repository head
   type: git
