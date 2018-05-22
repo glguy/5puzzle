@@ -1,7 +1,6 @@
 {-# Language ConstraintKinds #-}
 module Crosscells.Solver (solvePuzzle) where
 
-import Control.Monad.State (MonadState)
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Map ( Map )
@@ -10,11 +9,11 @@ import qualified Data.Map as Map
 
 import Ersatz
 import Select
+import Booleans (MonadSAT)
 
 import Crosscells.Puzzle
 import Crosscells.Region
 
-type MonadSAT s m = (HasSAT s, MonadState s m)
 
 solvePuzzle :: Puzzle -> IO (Map Coord (Maybe Op))
 solvePuzzle p =

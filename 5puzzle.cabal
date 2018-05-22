@@ -154,5 +154,10 @@ executable Crosscells
                        Crosscells.Puzzle,
                        Crosscells.Region,
                        Crosscells.Solver
-  build-depends:       base >=4.10 && <4.12, ersatz, 5puzzle, mtl, vector, containers
+  build-depends:       base >=4.10 && <4.12, ersatz, 5puzzle, vector, containers
+  default-language:    Haskell2010
+
+executable Handshakes
+  main-is:             Handshakes.hs
+  build-depends:       base >=4.10 && <4.12, ersatz, 5puzzle, containers
   default-language:    Haskell2010
