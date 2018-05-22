@@ -147,3 +147,12 @@ executable Zhed
   ghc-options:         -threaded
   build-depends:       5puzzle, base, ersatz, containers,
                        time >=1.6 && <1.10, diagrams-lib, diagrams-svg
+
+executable Crosscells
+  main-is:             Crosscells.hs
+  other-modules:       Crosscells.Tokens,
+                       Crosscells.Puzzle,
+                       Crosscells.Region,
+                       Crosscells.Solver
+  build-depends:       base >=4.10 && <4.12, ersatz, 5puzzle, mtl, vector, containers
+  default-language:    Haskell2010
