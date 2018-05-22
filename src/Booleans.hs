@@ -10,7 +10,6 @@ module Booleans
   , exactlyOne
   , any2, all2
   , countBits
-  , chooseBits
   ) where
 
 import Ersatz
@@ -74,17 +73,3 @@ any2 f xs ys = or (zipWith f xs ys)
 -- | Count the number of 'true' elements in a list of bits.
 countBits :: [Bit] -> Bits
 countBits = sumBits . map (Bits . return)
-
-
--- | Returns a value equal to the first argument when the selector is false
--- and equal to the second argument when the selector is true.
-chooseBits ::
-  Bits {- ^ false case -} ->
-  Bits {- ^ true  case -} ->
-  Bit  {- ^ selector   -} ->
-  Bits
-chooseBits (Bits x0) (Bits y0) b = Bits (merge x0 y0)
-  where
-    merge []     ys     = map (    b &&) ys
-    merge xs     []     = map (not b &&) xs
-    merge (x:xs) (y:ys) = choose x y b : merge xs ys

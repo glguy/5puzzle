@@ -6,7 +6,6 @@ module Select
   , select
   , selectList
   , mergeSelects
-  , foldSelect
   , selectEq
   , selectPermutation
   , selectPermutationN
@@ -15,7 +14,7 @@ module Select
 
 import Ersatz
 import Booleans
-import FromBit
+import ChooseBit
 import Data.Maybe
 import Data.List (tails)
 import Data.List.NonEmpty (NonEmpty(..))
@@ -26,7 +25,7 @@ import Control.Monad.State
 import Prelude hiding (any, and, or, (&&), (||) ,not)
 
 -- | A set of choices and an index of the chosen element of that set
-data Select a = Selected a | Choice Bit (Select a) (Select a)
+data Select a = Selected a | Choice (Select a) (Select a) Bit
   deriving Show
 
 -- | Symbolic selection from a non-empty list of alternatives.
@@ -43,28 +42,19 @@ mergeSelects :: MonadSAT s m => NonEmpty (Select a) -> m (Select a)
 mergeSelects (x  :| [])      = return x
 mergeSelects (x1 :| x2 : xs) =
   do b   <- exists
-     xs' <- reduce xs b
-     mergeSelects (Choice b x1 x2 :| xs')
+     xs' <- reduce xs
+     mergeSelects (Choice x1 x2 b :| xs')
 
-reduce :: MonadSAT s m => [Select a] -> Bit -> m [Select a]
-reduce (x1:x2:xs) b =
-     do xs' <- reduce xs b
-        return (Choice b x1 x2 : xs')
-reduce xs _ = return xs
+reduce :: MonadSAT s m => [Select a] -> m [Select a]
+reduce (x1:x2:xs) =
+     do b   <- exists
+        xs' <- reduce xs
+        return (Choice x1 x2 b : xs')
+reduce xs = return xs
 
-runSelect :: FromBit a => Select a -> a
-runSelect s = or (aux true s [])
-  where
-  aux sel (Selected x) z = (fromBit sel && x) : z
-  aux sel (Choice b x y) z =
-    aux (sel && not b) x (aux (sel && b) y z)
-
--- This is cleaner but it seems to run more slowly, presumably
--- due to doing more of the boolean operations at 'a' instead of doing
--- them at 'Bit'
--- runSelect :: FromBit a => Select a -> a
--- runSelect (Selected x)   = x
--- runSelect (Choice b x y) = choose (runSelect x) (runSelect y) (fromBit b)
+runSelect :: ChooseBit a => Select a -> a
+runSelect (Selected x) = x
+runSelect (Choice x y b) = chooseBit (runSelect x) (runSelect y) b
 
 instance Codec (Select a) where
 
@@ -73,11 +63,11 @@ instance Codec (Select a) where
   encode = Selected
 
   decode _ (Selected x) = return x
-  decode sol (Choice b x y) =
+  decode sol (Choice x y b) =
     do b' <- decode sol b
        decode sol (if b' then y else x)
 
-runSelectWith :: FromBit b => (a -> b) -> Select a -> b
+runSelectWith :: ChooseBit b => (a -> b) -> Select a -> b
 runSelectWith f x = runSelect (fmap f x)
 
 instance Functor Select where
@@ -89,26 +79,17 @@ instance Applicative Select where
 
 instance Monad Select where
   Selected x   >>= f = f x
-  Choice b x y >>= f = Choice b (x >>= f) (y >>= f)
+  Choice x y b >>= f = Choice (x >>= f) (y >>= f) b
 
+instance ChooseBit (Select a) where
+  chooseBit = Choice
 
 instance Foldable Select where
   foldMap = foldMapDefault
 
 instance Traversable Select where
   traverse f (Selected x) = Selected <$> f x
-  traverse f (Choice b l r) = Choice b <$> traverse f l <*> traverse f r
-
-newtype SelectBuilder s f a = SB { runSelectBuilder :: f (Select a) }
-
-instance (HasSAT s, MonadState s m) => Semigroup (SelectBuilder s m a) where
-  SB l <> SB r = SB (liftA3 Choice exists l r)
-
-singleton :: Applicative m => a -> Option (SelectBuilder s m a)
-singleton = Option . Just . SB . pure . Selected
-
-foldSelect :: (MonadSAT s m, Foldable t) => t a -> Maybe (m (Select a))
-foldSelect t = runSelectBuilder <$> getOption (foldMap singleton t)
+  traverse f (Choice l r b) = liftA2 (\l' r' -> Choice l' r' b) (traverse f l) (traverse f r)
 
 selectEq :: Eq a => Select a -> Select a -> Bit
 selectEq xs ys = runSelect (liftA2 (\x y -> bool (x == y)) xs ys)

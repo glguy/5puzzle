@@ -39,7 +39,8 @@ import Ersatz
 import Select
 import SparseMap (SparseMap)
 import qualified SparseMap
-import Booleans
+import ChooseBit
+import Booleans (MonadSAT)
 
 -- | Two-dimensional grid coordinate
 data Coord = Coord !Int !Int
@@ -161,7 +162,7 @@ changeCell (actual, remaining, board) coord = (actual-1, remaining', board')
     cell  = SparseMap.index coord board
     cell' = bool (actual > 0) || cell || remaining /== 0
 
-    remaining' = chooseBits (remaining - 1) remaining cell
+    remaining' = chooseBit (remaining - 1) remaining cell
     board'     = SparseMap.insert coord cell' board
 
 ------------------------------------------------------------------------

@@ -9,7 +9,7 @@ module SparseMap
   , constant) where
 
 import Ersatz
-import FromBit
+import ChooseBit
 import Prelude hiding ((&&), (||), not)
 import Control.Applicative
 import Data.Monoid ((<>))
@@ -20,8 +20,8 @@ import qualified Data.Map as Map
 data SparseMap k v = SparseMap !(Map k v) v
   deriving (Read, Show)
 
-instance (Ord k, FromBit v) => FromBit (SparseMap k v) where
-  fromBit = constant . fromBit
+instance (Ord k, ChooseBit v) => ChooseBit (SparseMap k v) where
+  chooseBit x y b = (\l r -> chooseBit l r b) <$> x <*> y
 
 instance Functor (SparseMap k) where
   fmap f (SparseMap m x) = SparseMap (f <$> m) (f x)
