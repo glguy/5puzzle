@@ -27,6 +27,9 @@ instance ChooseBit Bit6
 instance ChooseBit Bit7
 instance ChooseBit Bit8
 
+instance (ChooseBit a, ChooseBit b) => ChooseBit (a,b)
+instance (ChooseBit a, ChooseBit b, ChooseBit c) => ChooseBit (a,b,c)
+
 instance ChooseBit Bits where
   chooseBit (Bits x0) (Bits y0) b = Bits (merge x0 y0)
     where

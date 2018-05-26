@@ -49,6 +49,7 @@ solution  =
                 let pcov = runSelectWith (cover loc) po
                 return (p,po,pcov))
 
+     assert $ true === (falseList locations || or coverMaps)
      assert $ coverOne (trueList locations) coverMaps
      assert $ count cube  pieces === 5
      assert $ count thick pieces === 6
@@ -60,7 +61,7 @@ solution  =
 count :: Eq a => a -> [Select a] -> Bits
 count target xs = countBits (map eltToBit xs)
   where
-  eltToBit = runSelectWith $ \x -> bool (x == target)
+  eltToBit elt = pure target === elt
 
 main :: IO ()
 main =

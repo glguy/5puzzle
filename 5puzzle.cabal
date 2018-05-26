@@ -163,3 +163,8 @@ executable Handshakes
   main-is:             Handshakes.hs
   build-depends:       base, ersatz, 5puzzle, containers
   default-language:    Haskell2010
+
+executable Loopy
+  main-is:             Loopy.hs
+  build-depends:       base, ersatz, 5puzzle, containers
+  default-language:    Haskell2010

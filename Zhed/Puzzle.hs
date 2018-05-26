@@ -84,7 +84,9 @@ existsSolution ::
 existsSolution n puzzle =
 
   do -- chose the order cells will be clicked
-     moves  <- selectPermutationN n (puzzleSquares puzzle)
+     -- reverse the order because its cheaper to fix earlier
+     -- elements in the list than later ones.
+     moves <- reverse <$> selectPermutationN n (puzzleSquares puzzle)
 
      let combine x y = do (a,b) <- x; c <- y; return (a,b,c)
 

@@ -6,7 +6,6 @@ module Select
   , select
   , selectList
   , mergeSelects
-  , selectEq
   , selectPermutation
   , selectPermutationN
   , unsafeUniqueSelects
@@ -81,21 +80,19 @@ instance Monad Select where
   Selected x   >>= f = f x
   Choice x y b >>= f = Choice (x >>= f) (y >>= f) b
 
-instance ChooseBit (Select a) where
-  chooseBit = Choice
-
 instance Foldable Select where
   foldMap = foldMapDefault
 
 instance Traversable Select where
-  traverse f (Selected x) = Selected <$> f x
-  traverse f (Choice l r b) = liftA2 (\l' r' -> Choice l' r' b) (traverse f l) (traverse f r)
+  traverse f (Selected x)   = Selected <$> f x
+  traverse f (Choice l r b) =
+    liftA2 (\l' r' -> Choice l' r' b) (traverse f l) (traverse f r)
 
-selectEq :: Eq a => Select a -> Select a -> Bit
-selectEq xs ys = runSelect (liftA2 (\x y -> bool (x == y)) xs ys)
+instance ChooseBit (Select a) where
+  chooseBit = Choice
 
-instance Equatable a => Equatable (Select a) where
-  x === y = runSelect (liftA2 (===) x y)
+instance Eq a => Equatable (Select a) where
+  x === y = runSelect (liftA2 (\x y -> bool (x == y)) x y)
 
 selectPermutation :: MonadSAT s m => [a] -> m [Select a]
 selectPermutation xs = selectPermutationN (length xs) xs
@@ -115,8 +112,11 @@ selectPermutationN n xs
 -- actual values.
 unsafeUniqueSelects :: [Select a] -> Bit
 unsafeUniqueSelects ys =
-  nor [ selectEq y z
-      | y:zs <- tails (map renumber ys)
+  nor [ sameSelect y z
+      | y:zs <- tails ys
       , z    <- zs ]
   where
-  renumber = snd . mapAccumL (\i _ -> (i+1,i)) (0 :: Int)
+    sameSelect (Choice l1 r1 b1) (Choice l2 r2 b2) =
+          not b1 && not b2 && sameSelect l1 l2 ||
+              b1 &&     b2 && sameSelect r1 r2
+    sameSelect _ _ = true

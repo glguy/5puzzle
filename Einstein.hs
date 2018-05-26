@@ -38,17 +38,11 @@ import Prelude hiding (and, or, (&&), (||), not)
 type SAssignment = ([Select Natl], [Select Drink], [Select Smoke], [Select Pet], [Select Color])
 type Assignment = ([Natl], [Drink], [Smoke], [Pet], [Color])
 
-data Natl  = Brit  | Swede   | Dane   | Norwgn | German deriving (Bounded, Enum, Show, Generic)
-data Drink = Tea   | Beer    | Coffee | Water  | Milk   deriving (Bounded, Enum, Show, Generic)
-data Smoke = Pall  | Dunhill | Camel  | Marl   | Blend  deriving (Bounded, Enum, Show, Generic)
-data Pet   = Bird  | Dog     | Cat    | Horse  | Fish   deriving (Bounded, Enum, Show, Generic)
-data Color = Green | Red     | Blue   | Yellow | White  deriving (Bounded, Enum, Show, Generic)
-
-instance Equatable Natl
-instance Equatable Drink
-instance Equatable Smoke
-instance Equatable Pet
-instance Equatable Color
+data Natl  = Brit  | Swede   | Dane   | Norwgn | German deriving (Bounded, Enum, Show, Generic, Eq)
+data Drink = Tea   | Beer    | Coffee | Water  | Milk   deriving (Bounded, Enum, Show, Generic, Eq)
+data Smoke = Pall  | Dunhill | Camel  | Marl   | Blend  deriving (Bounded, Enum, Show, Generic, Eq)
+data Pet   = Bird  | Dog     | Cat    | Horse  | Fish   deriving (Bounded, Enum, Show, Generic, Eq)
+data Color = Green | Red     | Blue   | Yellow | White  deriving (Bounded, Enum, Show, Generic, Eq)
 
 main :: IO ()
 main =
@@ -101,10 +95,10 @@ isValid (natl,drink,smoke,pet,color) = and
   , nextTo Blend  smoke Water   drink
   ]
 
-match, leftOf, nextTo :: (Equatable a, Equatable b) => a -> [Select a] -> b -> [Select b] -> Bit
+match, leftOf, nextTo :: (Eq a, Eq b) => a -> [Select a] -> b -> [Select b] -> Bit
 match  x xs y ys = is x xs === is y ys
 leftOf x xs y ys = false : is x xs === is y ys ++ [false]
 nextTo x xs y ys = leftOf x xs y ys || leftOf y ys x xs
 
-is :: Equatable a => a -> [Select a] -> [Bit]
+is :: Eq a => a -> [Select a] -> [Bit]
 is x ys = map (encode x ===) ys

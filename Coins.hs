@@ -77,18 +77,18 @@ problem =
 -- | Check that the partitionings of coins and the decision tree
 -- correctly identify the identity of a given coin and weight mode.
 check :: Int -> Weight -> [Partition Bit] -> Decision (Select Weight,Bit4) -> Bit
-check i weight = go
+check i weight = foldr checkDecision checkAnswer
   where
   heavy = case weight of
             Heavy -> true
             Light -> false
 
-  go [] (Answer a) = encode (weight, fromIntegral i)===a
+  checkAnswer (Answer a) = encode (weight, fromIntegral i)===a
 
-  go (Partition l r : ps) d@Decision{}
-     = pick_lo_hi && go ps (lo_hi d)
-    || pick_hi_lo && go ps (hi_lo d)
-    || pick_same  && go ps (same  d)
+  checkDecision (Partition l r) next d
+     = pick_lo_hi && next (lo_hi d)
+    || pick_hi_lo && next (hi_lo d)
+    || pick_same  && next (same  d)
     where
     pick_lo_hi = choose inR inL heavy
     pick_hi_lo = choose inL inR heavy
@@ -96,7 +96,6 @@ check i weight = go
     inL = l!!i
     inR = r!!i
 
-  go _ _ = false
 
 -- | Compute the 3 partitions and the decision tree that can uniquely
 -- identify any one coin that is lighter or heavier than all the rest.
