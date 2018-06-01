@@ -1,0 +1,99 @@
+module Palisade.Regions
+  (
+  -- * Coordinates
+    Coord(C), up, down, left, right, origin
+  , cardinalNeighbors
+
+  -- * Regions
+  , Region
+  , translate
+  , inRegion
+  , regionCoords
+  , sizedRegions
+  , symmetries
+  , minCoord
+  , maxCoord
+
+  -- * Utility
+  , uniques
+  ) where
+
+import qualified Data.Set as Set
+import Data.Set (Set)
+import Data.Foldable
+
+data Coord = C !Int !Int
+  deriving (Read, Show, Ord, Eq)
+
+up, down, left, right :: Coord -> Coord
+up    (C x y) = C x (y-1)
+down  (C x y) = C x (y+1)
+left  (C x y) = C (x-1) y
+right (C x y) = C (x+1) y
+
+origin :: Coord
+origin = C 0 0
+
+cardinalNeighbors :: Coord -> [Coord]
+cardinalNeighbors (C x y) = [ C (x-1) y, C (x+1) y, C x (y-1), C x (y+1) ]
+
+translate :: Coord -> Region -> Region
+translate c (Region r) = Region (Set.mapMonotonic (addCoord c) r)
+
+disjoint :: Region -> Region -> Bool
+disjoint (Region x) (Region y) = Set.null (Set.intersection x y)
+
+inRegion :: Coord -> Region -> Bool
+inRegion c (Region r) = Set.member c r
+
+newtype Region = Region (Set Coord)
+  deriving (Read, Show, Eq, Ord)
+
+addCoord :: Coord -> Coord -> Coord
+addCoord (C x1 y1) (C x2 y2) = C (x1+x2) (y1+y2)
+
+minCoord :: Region -> Coord
+minCoord (Region r) = foldl1 (\(C x1 y1) (C x2 y2) -> C (min x1 x2) (min y1 y2)) r
+
+maxCoord :: Region -> Coord
+maxCoord (Region r) = foldl1 (\(C x1 y1) (C x2 y2) -> C (max x1 x2) (max y1 y2)) r
+
+recenter :: Region -> Region
+recenter r = translate (C (-x) (-y)) r
+  where
+    C x y = minCoord r
+
+normalize :: Region -> Region
+normalize = minimum . symmetries
+
+mapRegion :: (Coord -> Coord) -> Region -> Region
+mapRegion f (Region r) = Region (Set.map f r)
+
+addRegion :: Coord -> Region -> Region
+addRegion c (Region r) = Region (Set.insert c r)
+
+regionCoords :: Region -> [Coord]
+regionCoords (Region r) = Set.toList r
+
+symmetries :: Region -> [Region]
+symmetries r =
+  [ recenter (mapRegion (f1 . f2 . f3) r)
+  | f1 <- [id, \(C x y) -> C (-x) y]
+  , f2 <- [id, \(C x y) -> C x (-y)]
+  , f3 <- [id, \(C x y) -> C y x   ]
+  ]
+
+grow :: Region -> [Region]
+grow r = uniques
+  [ normalize (addRegion c r)
+  | c <- uniques (cardinalNeighbors =<< regionCoords r)
+  , not (inRegion c r) ]
+
+uniques :: Ord a => [a] -> [a]
+uniques = Set.toList . Set.fromList
+
+sizedRegions :: Int -> [Region]
+sizedRegions n = loop n [Region (Set.singleton origin)]
+  where
+    loop 1 xs = xs
+    loop n xs = loop (n-1) (uniques (concatMap grow xs))
