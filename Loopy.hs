@@ -50,7 +50,7 @@ edgeOn e = edgeId e /== 0
 
 -- | Edge that is not active
 noEdge :: Edge
-noEdge = Edge false 0 false
+noEdge = Edge false false 0
 
 -- | Generate a new symbolic edge given a number of bits to use for the ID
 newEdge :: MonadSAT s m => Int {- ^ ID bits -} -> m Edge
