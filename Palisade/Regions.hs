@@ -13,6 +13,7 @@ module Palisade.Regions
   , symmetries
   , minCoord
   , maxCoord
+  , isSolid
 
   -- * Utility
   , uniques
@@ -97,3 +98,22 @@ sizedRegions n = loop n [Region (Set.singleton origin)]
   where
     loop 1 xs = xs
     loop n xs = loop (n-1) (uniques (concatMap grow xs))
+
+isSolid :: Region -> Bool
+isSolid r = search border candidates
+  where
+    C xlo ylo = minCoord r
+    C xhi yhi = maxCoord r
+    candidates = Set.fromList
+                 [ c | c <- C <$> [xlo..xhi] <*> [ylo..yhi]
+                     , not (inRegion c r) ]
+    border = [ C xlo y | y <- [ylo..yhi] ]
+          ++ [ C xhi y | y <- [ylo..yhi] ]
+          ++ [ C x ylo | x <- [xlo..xhi] ]
+          ++ [ C x yhi | x <- [xlo..xhi] ]
+
+    search [] candidates = Set.null candidates
+    search (x:xs) candidates
+      | Set.member x candidates = search (cardinalNeighbors x ++ xs)
+                                         (Set.delete x candidates)
+      | otherwise = search xs candidates

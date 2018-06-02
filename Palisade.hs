@@ -1,18 +1,13 @@
-{-# Language RecordWildCards #-}
 {-|
 Module      : Main
-Description : Solver for the Loopy game
+Description : Solver for the Palisade game
 Copyright   : (c) Eric Mertens, 2018
 License     : ISC
 Maintainer  : emertens@gmail.com
 
-Console-based solver for the Loopy game as defined at
-https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/loopy.html
+Console-based solver for the Palisade game as defined at
+https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/palisade.html
 
-This solution enforces the constraint that a solution consists of
-active edges in the grid that form a single, continuous, non-intersecting
-loop by assigning each edge a direction and sequential ID. The final
-ID in the loop is permitted to connect back to the starting element.
 
 -}
 module Main where
@@ -86,6 +81,7 @@ solvePuzzle (Puzzle r w h clues) =
                             : [ Just r
                               | r <- translate c <$> regions
                               , inBounds w h r
+                              , isSolid r
                               , checkClues clues r ]
 
      -- check that every cell is contained in exactly one region
