@@ -17,7 +17,7 @@ ID in the loop is permitted to connect back to the starting element.
 -}
 module Main where
 
-import           Control.Monad (replicateM)
+import           Control.Monad (guard, replicateM)
 import           Data.Char (intToDigit, digitToInt, isDigit)
 import           Data.List (transpose)
 import           Data.Map (Map)
@@ -40,20 +40,21 @@ import qualified SparseMap
 
 -- | Symbolic information about an edge on the board.
 data Edge = Edge
-  { edgeOn  :: Bit -- ^ true when this edge is active
-  , edgeFwd :: Bit -- ^ true when this edge points right or down
+  { edgeFwd :: Bit  -- ^ true when this edge points right or down
   , edgeId  :: Bits -- ^ sequential ID number used to enforce a single loop
   }
 
+edgeOn :: Edge -> Bit
+edgeOn e = edgeId e /== 0
+
 -- | Edge that is not active
 noEdge :: Edge
-noEdge = Edge false false 0
+noEdge = Edge false 0
 
 -- | Generate a new symbolic edge given a number of bits to use for the ID
 newEdge :: MonadSAT s m => Int {- ^ ID bits -} -> m Edge
 newEdge n =
-  do edgeOn  <- exists
-     edgeFwd <- exists
+  do edgeFwd <- exists
      edgeId  <- newBits n
      return Edge{..}
 
@@ -151,19 +152,10 @@ renderSolution ::
   Puzzle                   {- ^ puzzle parameters -} ->
   SparseMap EdgeCoord Bool {- ^ solution          -} ->
   String                   {- ^ rendering         -}
-renderSolution (Puzzle w h clues) solution =
-  renderGrid w h drawEdge drawCell
+renderSolution (Puzzle w h clues) solution = renderGridRound w h edge cell
   where
-    needsEdge c o = SparseMap.index (c,o) solution
-
-    drawEdge c o
-      | needsEdge c o = Just Thin
-      | otherwise     = Nothing
-
-    drawCell c@(C x y)
-      | Just n <- Map.lookup c clues = intToDigit n
-      | x < w && y < h               = '·'
-      | otherwise                    = ' ' -- right and bottom edge
+    edge c o = Thin <$ guard (SparseMap.index (c,o) solution)
+    cell c   = maybe '·' intToDigit (Map.lookup c clues)
 
 
 ------------------------------------------------------------------------
@@ -186,7 +178,7 @@ solvePuzzle (Puzzle w h clues) =
      assert (atMostOne (fmap (\e -> endId === edgeId e) cells))
 
      -- all edge IDs must be less than the wrap-around edge
-     assert (all (\e -> edgeOn e ==> (edgeId e <=? endId)) cells)
+     assert (all (\e -> (edgeId e <=? endId)) cells)
 
      -- all intersections must be connected by sequentially numbered edges
      assert (and [ validateIntersection endId (C x y) cells
@@ -197,7 +189,6 @@ solvePuzzle (Puzzle w h clues) =
 
      -- returns map of active edges (forgetting edge IDs)
      return (fmap edgeOn cells)
-
 
 -- | Returns 'true' when at most one element in the given list-like structure
 -- is 'true'.
@@ -256,7 +247,7 @@ validateIntersection endId coord board = emptyIntersection || activeIntersection
       and [ edgeFwd edge1 /== out1
           , edgeFwd edge2 === out2
           , edgeId edge1 + 1 === edgeId edge2 ||         -- normal
-            edgeId edge1 === endId && edgeId edge2 === 0 -- wrap-around
+            edgeId edge1 === endId && edgeId edge2 === 1 -- wrap-around
           ]
 
 -- | Generate a new board containing the edges available on a board
@@ -269,7 +260,7 @@ newCells ::
   m (Bits, Board)
 newCells w h =
   do let keys       = locations w h
-         bitsNeeded = ceiling (logBase 2 (fromIntegral (length keys)) :: Double)
+         bitsNeeded = ceiling (logBase 2 (fromIntegral (1 + length keys)) :: Double)
      endId <- newBits bitsNeeded
      cells <- sequence
             $ SparseMap.fromList

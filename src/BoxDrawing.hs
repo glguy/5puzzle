@@ -11,6 +11,7 @@ module BoxDrawing
   , Orient(Horiz, Vert)
   , boxChar
   , renderGrid
+  , renderGridRound
   ) where
 
 import Control.Monad (guard)
@@ -196,10 +197,36 @@ renderGrid ::
   Int                               {- ^ height     -} ->
   (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
   (Coord -> Char)                   {- ^ cell logic -} ->
-  String
-renderGrid w h edge cell = rearrange [[render1 (C x y) | x <- [0..w]] | y <- [0..h]]
+  String                            {- ^ grid lines -}
+renderGrid = renderGridExt boxChar
+
+-- | Alternative to 'renderGrid' that uses rounded 90-degree turns.
+renderGridRound ::
+  Int                               {- ^ width      -} ->
+  Int                               {- ^ height     -} ->
+  (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
+  (Coord -> Char)                   {- ^ cell logic -} ->
+  String                            {- ^ grid lines -}
+renderGridRound = renderGridExt box
   where
-    boxChar' u d l r = fromMaybe ' ' (boxChar u d l r)
+    box (Just Thin) Nothing     (Just Thin) Nothing     = Just '╯'
+    box (Just Thin) Nothing     Nothing     (Just Thin) = Just '╰'
+    box Nothing     (Just Thin) (Just Thin) Nothing     = Just '╮'
+    box Nothing     (Just Thin) Nothing     (Just Thin) = Just '╭'
+    box u           d           l           r           = boxChar u d l r
+
+-- | Grid rendering implementation parameterized on the box drawing
+-- character lookup function.
+renderGridExt ::
+  (Maybe Weight -> Maybe Weight -> Maybe Weight -> Maybe Weight -> Maybe Char) ->
+  Int                               {- ^ width      -} ->
+  Int                               {- ^ height     -} ->
+  (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
+  (Coord -> Char)                   {- ^ cell logic -} ->
+  String                            {- ^ grid lines -}
+renderGridExt box w h edge cell = rearrange [[render1 (C x y) | x <- [0..w]] | y <- [0..h]]
+  where
+    box' u d l r = fromMaybe ' ' (box u d l r)
 
     -- rows of cells of (lines in cell) to single string
     rearrange :: [[[String]]] -> String
@@ -212,7 +239,7 @@ renderGrid w h edge cell = rearrange [[render1 (C x y) | x <- [0..w]] | y <- [0.
         eL = guard (0<x) >> edge (left c) Horiz
         eU = guard (0<y) >> edge (up   c) Vert
 
-        line1 = boxChar' eU eD eL eR
-              : [boxChar' Nothing Nothing eR eR | x<w]
-        line2 = boxChar' eD eD Nothing Nothing
+        line1 = box' eU eD eL eR
+              : [box' Nothing Nothing eR eR | x<w]
+        line2 = box' eD eD Nothing Nothing
               : [cell c | x<w]
