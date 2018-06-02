@@ -31,6 +31,9 @@ import           System.Environment (getArgs)
 import           System.Exit (exitFailure)
 import           System.IO (hPutStrLn, stderr)
 
+import           BoxDrawing
+import           Coord
+
 ------------------------------------------------------------------------
 -- Board edges
 ------------------------------------------------------------------------
@@ -58,26 +61,8 @@ newBits :: MonadSAT s m => Int {- ^ number of bits -} -> m Bits
 newBits n = Bits <$> replicateM n exists
 
 ------------------------------------------------------------------------
--- Coordinates
-------------------------------------------------------------------------
-
--- | Coordinates are column and row with origin in the top-left
-type Coord = (Int,Int)
-
-up, down, left, right :: Coord -> Coord
-up    (x,y) = (x,y-1)
-down  (x,y) = (x,y+1)
-left  (x,y) = (x-1,y)
-right (x,y) = (x+1,y)
-
-------------------------------------------------------------------------
 -- Board representation
 ------------------------------------------------------------------------
-
--- | Flag for indicating a horizontal or vertical cell edge.
-data Orient = Horiz | Vert
-  deriving (Eq, Ord, Read, Show)
-
 
 -- | Edges are labeled by association with the cell that the edge either
 -- borders on top or left side. Edges point to the right and down.
@@ -135,9 +120,9 @@ locations ::
   [EdgeCoord] {- ^ all edges on board -}
 locations w h = body ++ bottomEdge ++ rightEdge
   where
-    bottomEdge = [ ((x,h),Horiz) | x <- [0..w-1]                ]
-    rightEdge  = [ ((w,y),Vert ) |                y <- [0..h-1] ]
-    body       = [ ((x,y),o    ) | x <- [0..w-1], y <- [0..h-1]
+    bottomEdge = [ (C x h,Horiz) | x <- [0..w-1]                ]
+    rightEdge  = [ (C w y,Vert ) |                y <- [0..h-1] ]
+    body       = [ (C x y,o    ) | x <- [0..w-1], y <- [0..h-1]
                                  , o <- [Horiz, Vert]           ]
 
 ------------------------------------------------------------------------
@@ -156,11 +141,10 @@ parsePuzzle str = Puzzle w h cells
     h     = length ls
     w     = maximum (0 : map length ls)
     cells = Map.fromList
-              [ ((x,y),digitToInt n)
+              [ (C x y,digitToInt n)
                 | (y,l) <- zip [0..] ls
                 , (x,n) <- zip [0..] l
                 , isDigit n ]
-
 
 -- | Render the solution to a puzzle as ASCII art.
 renderSolution ::
@@ -168,35 +152,19 @@ renderSolution ::
   SparseMap EdgeCoord Bool {- ^ solution          -} ->
   String                   {- ^ rendering         -}
 renderSolution (Puzzle w h clues) solution =
-  rearrange
-  [ [ [[drawCorner eU eL eR eD, if eR then '─' else ' ']
-      ,[if eD then '│' else ' ',
-        drawClue x y (Map.lookup (x,y) clues)]]
-     | x <- [0..w]
-     , let eR = SparseMap.index (     (x,y),Horiz) solution
-     , let eD = SparseMap.index (     (x,y),Vert ) solution
-     , let eL = SparseMap.index (left (x,y),Horiz) solution
-     , let eU = SparseMap.index (up   (x,y),Vert ) solution
-        ]
-     | y <- [0..h] ]
+  renderGrid w h drawEdge drawCell
   where
-    -- rows of cells of (lines in cell) to single string
-    rearrange :: [[[String]]] -> String
-    rearrange = unlines . concatMap (map concat . transpose)
+    needsEdge c o = SparseMap.index (c,o) solution
 
-    drawClue _ _ (Just n) = intToDigit n
-    drawClue x y Nothing
-      | x < w && y < h = '·'
-      | otherwise      = ' ' -- right and bottom edge
+    drawEdge c o
+      | needsEdge c o = Just Thin
+      | otherwise     = Nothing
 
-    drawCorner u l r d
-      | u, l = '┘'
-      | u, r = '└'
-      | d, l = '┐'
-      | d, r = '┌'
-      | u, d = '│'
-      | l, r = '─'
-      | True = ' '
+    drawCell c@(C x y)
+      | Just n <- Map.lookup c clues = intToDigit n
+      | x < w && y < h               = '·'
+      | otherwise                    = ' ' -- right and bottom edge
+
 
 ------------------------------------------------------------------------
 -- Solver
@@ -226,7 +194,7 @@ solvePuzzle (Puzzle w h clues) =
      assert (all (\e -> edgeOn e ==> (edgeId e <=? endId)) cells)
 
      -- all intersections must be connected by sequentially numbered edges
-     assert (and [ validateIntersection endId (x,y) cells
+     assert (and [ validateIntersection endId (C x y) cells
                  | x <- [0..w], y <- [0..h] ])
 
      -- all cell clues must be satisfied

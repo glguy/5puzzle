@@ -33,6 +33,8 @@ import           Data.Foldable (toList, for_)
 import           Data.List (tails)
 
 import           Palisade.Regions
+import           BoxDrawing
+import           Coord
 
 data Puzzle = Puzzle Int Int Int (Map Coord Int)
   deriving Show
@@ -146,59 +148,20 @@ getFile =
 -- Rendering
 ------------------------------------------------------------------------
 
-data Orient = Horiz | Vert
-
 renderSolution :: Puzzle -> [Region] -> String
-renderSolution (Puzzle _ w h clues) rs =
-  rearrange
-  [ [ [[drawCorner eU eL eR eD, if eR then '─' else ' ']
-      ,[if eD then '│' else ' ',
-        drawClue x y (Map.lookup (C x y) clues)]]
-     | x <- [0..w]
-     , let eR = edge       (C x y)  Horiz
-     , let eD = edge       (C x y)  Vert
-     , let eL = edge (left (C x y)) Horiz
-     , let eU = edge (up   (C x y)) Vert
-        ]
-     | y <- [0..h] ]
+renderSolution (Puzzle _ w h clues) rs = renderGrid w h drawEdge drawCell
   where
     regionIds :: Map Coord Int
     regionIds = Map.fromList [ (c,i) | (i,r) <- zip [0..] rs, c <- regionCoords r ]
 
-    edge :: Coord -> Orient -> Bool
-    edge c Horiz = Map.lookup c regionIds
-                /= Map.lookup (up c) regionIds
-    edge c Vert  = Map.lookup c regionIds
-                /= Map.lookup (left c) regionIds
+    needsEdge c Horiz = Map.lookup c regionIds /= Map.lookup (up   c) regionIds
+    needsEdge c Vert  = Map.lookup c regionIds /= Map.lookup (left c) regionIds
 
-    -- rows of cells of (lines in cell) to single string
-    rearrange :: [[[String]]] -> String
-    rearrange = unlines . concatMap (map concat . transpose)
+    drawEdge c o
+      | needsEdge c o = Just Thin
+      | otherwise     = Nothing
 
-    drawClue :: Int -> Int -> Maybe Int -> Char
-    drawClue _ _ (Just n) = intToDigit n
-    drawClue x y Nothing
-      | x < w && y < h = '·'
-      | otherwise      = ' ' -- right and bottom edge
-
-    drawCorner u l r d
-      | u, d, l, r = '┼'
-
-      | u, d, l    = '┤'
-      | u, d,    r = '├'
-      | u,    l, r = '┴'
-      |    d, l, r = '┬'
-
-      | u, d       = '│'
-      | u,    l    = '┘'
-      | u,       r = '└'
-      |    d, l    = '┐'
-      |    d,    r = '┌'
-      |       l, r = '─'
-
-      | u          = '╷'
-      |    d       = '╵'
-      |       l    = '╴'
-      |          r = '╶'
-
-      | otherwise = ' '
+    drawCell c@(C x y)
+      | Just n <- Map.lookup c clues = intToDigit n
+      | x < w && y < h               = '·'
+      | otherwise                    = ' ' -- right and bottom edge

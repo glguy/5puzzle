@@ -1,11 +1,7 @@
 module Palisade.Regions
   (
-  -- * Coordinates
-    Coord(C), up, down, left, right, origin
-  , cardinalNeighbors
-
   -- * Regions
-  , Region
+    Region
   , translate
   , inRegion
   , regionCoords
@@ -23,20 +19,7 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import Data.Foldable
 
-data Coord = C !Int !Int
-  deriving (Read, Show, Ord, Eq)
-
-up, down, left, right :: Coord -> Coord
-up    (C x y) = C x (y-1)
-down  (C x y) = C x (y+1)
-left  (C x y) = C (x-1) y
-right (C x y) = C (x+1) y
-
-origin :: Coord
-origin = C 0 0
-
-cardinalNeighbors :: Coord -> [Coord]
-cardinalNeighbors (C x y) = [ C (x-1) y, C (x+1) y, C x (y-1), C x (y+1) ]
+import Coord
 
 translate :: Coord -> Region -> Region
 translate c (Region r) = Region (Set.mapMonotonic (addCoord c) r)
@@ -49,9 +32,6 @@ inRegion c (Region r) = Set.member c r
 
 newtype Region = Region (Set Coord)
   deriving (Read, Show, Eq, Ord)
-
-addCoord :: Coord -> Coord -> Coord
-addCoord (C x1 y1) (C x2 y2) = C (x1+x2) (y1+y2)
 
 minCoord :: Region -> Coord
 minCoord (Region r) = foldl1 (\(C x1 y1) (C x2 y2) -> C (min x1 x2) (min y1 y2)) r

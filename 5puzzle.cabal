@@ -24,6 +24,8 @@ source-repository head
 
 library
   exposed-modules:     SparseMap Select Booleans ChooseBit Parallel
+                       BoxDrawing
+                       Coord
                        RegExp.AST
                        RegExp.Match
                        RegExp.BackMatch
