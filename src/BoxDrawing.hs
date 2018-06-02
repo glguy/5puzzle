@@ -136,25 +136,27 @@ boxChar _             _             _             _             = Nothing
 
 
 renderGrid ::
-  Int {- ^ width  -} ->
-  Int {- ^ height -} ->
+  Int                               {- ^ width      -} ->
+  Int                               {- ^ height     -} ->
   (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
-  (Coord -> Char) {- ^ cell logic -} ->
+  (Coord -> Char)                   {- ^ cell logic -} ->
   String
-renderGrid w h edge cell =
-  rearrange
-  [ [ [[boxChar' eU eD eL eR, boxChar' Nothing Nothing eR eR]
-      ,[boxChar' eD eD Nothing Nothing, cell (C x y)]]
-     | x <- [0..w]
-     , let eR = guard (x < w) >> edge (C x y) Horiz
-     , let eD = guard (y < h) >> edge (C x y) Vert
-     , let eL = edge (left (C x y)) Horiz
-     , let eU = edge (up   (C x y)) Vert
-        ]
-     | y <- [0..h] ]
+renderGrid w h edge cell = rearrange [[render1 (C x y) | x <- [0..w]] | y <- [0..h]]
   where
     boxChar' u d l r = fromMaybe ' ' (boxChar u d l r)
 
     -- rows of cells of (lines in cell) to single string
     rearrange :: [[[String]]] -> String
-    rearrange = unlines . concatMap (map concat . transpose)
+    rearrange = unlines . map concat . concat . map transpose
+
+    render1 c@(C x y) = line1:[line2 | y<h]
+      where
+        eR = guard (x<w) >> edge c        Horiz
+        eD = guard (y<h) >> edge c        Vert
+        eL = guard (0<x) >> edge (left c) Horiz
+        eU = guard (0<y) >> edge (up   c) Vert
+
+        line1 = boxChar' eU eD eL eR
+              : [boxChar' Nothing Nothing eR eR | x<w]
+        line2 = boxChar' eD eD Nothing Nothing
+              : [cell c | x<w]
