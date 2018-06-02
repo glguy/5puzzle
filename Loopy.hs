@@ -29,7 +29,7 @@ import           System.IO (hPutStrLn, stderr)
 
 import           Ersatz
 import           BoxDrawing
-import           Booleans (MonadSAT, countBits, getModel)
+import           Booleans (MonadSAT, countBits, getModel, exactlyOne)
 import           Coord
 import           SparseMap (SparseMap)
 import qualified SparseMap
@@ -41,6 +41,7 @@ import qualified SparseMap
 -- | Symbolic information about an edge on the board.
 data Edge = Edge
   { edgeFwd :: Bit  -- ^ true when this edge points right or down
+  , edgeEnd :: Bit  -- ^ last edge in the loop, allowed to connect to 1
   , edgeId  :: Bits -- ^ sequential ID number used to enforce a single loop
   }
 
@@ -49,12 +50,13 @@ edgeOn e = edgeId e /== 0
 
 -- | Edge that is not active
 noEdge :: Edge
-noEdge = Edge false 0
+noEdge = Edge false 0 false
 
 -- | Generate a new symbolic edge given a number of bits to use for the ID
 newEdge :: MonadSAT s m => Int {- ^ ID bits -} -> m Edge
 newEdge n =
   do edgeFwd <- exists
+     edgeEnd <- exists
      edgeId  <- newBits n
      return Edge{..}
 
@@ -172,16 +174,13 @@ solvePuzzleIO = getModel . solvePuzzle
 -- the puzzle's clues unless one is impossible.
 solvePuzzle :: MonadSAT s m => Puzzle -> m (SparseMap EdgeCoord Bit)
 solvePuzzle (Puzzle w h clues) =
-  do (endId, cells) <- newCells w h
+  do cells <- newCells w h
 
      -- only allow one edge to be the wrap-around edge
-     assert (atMostOne (fmap (\e -> endId === edgeId e) cells))
-
-     -- all edge IDs must be less than the wrap-around edge
-     assert (all (\e -> (edgeId e <=? endId)) cells)
+     assert (atMostOne (fmap edgeEnd cells))
 
      -- all intersections must be connected by sequentially numbered edges
-     assert (and [ validateIntersection endId (C x y) cells
+     assert (and [ validateIntersection (C x y) cells
                  | x <- [0..w], y <- [0..h] ])
 
      -- all cell clues must be satisfied
@@ -219,8 +218,8 @@ partitions n (x:xs) =
 
 -- | Check that any intersection is unused in the solution or that it
 -- is correct traversed by only two edges that are sequentially numbered.
-validateIntersection :: Bits -> Coord -> Board -> Bit
-validateIntersection endId coord board = emptyIntersection || activeIntersection
+validateIntersection :: Coord -> Board -> Bit
+validateIntersection coord board = emptyIntersection || activeIntersection
   where
     -- checks that none of the given edges are active
     noEdges = all (not . edgeOn . fst)
@@ -246,8 +245,8 @@ validateIntersection endId coord board = emptyIntersection || activeIntersection
     connected edge1 out1 edge2 out2 =
       and [ edgeFwd edge1 /== out1
           , edgeFwd edge2 === out2
-          , edgeId edge1 + 1 === edgeId edge2 ||         -- normal
-            edgeId edge1 === endId && edgeId edge2 === 1 -- wrap-around
+          , edgeId edge1 + 1 === edgeId edge2 || -- normal
+            edgeEnd edge1 && edgeId edge2 === 1 -- wrap-around
           ]
 
 -- | Generate a new board containing the edges available on a board
@@ -257,16 +256,14 @@ newCells ::
   MonadSAT s m =>
   Int {- ^ width  -} ->
   Int {- ^ height -} ->
-  m (Bits, Board)
+  m Board
 newCells w h =
   do let keys       = locations w h
          bitsNeeded = ceiling (logBase 2 (fromIntegral (1 + length keys)) :: Double)
-     endId <- newBits bitsNeeded
-     cells <- sequence
-            $ SparseMap.fromList
-                (pure noEdge)
-                [ (k,newEdge bitsNeeded) | k <- keys ]
-     return (endId, cells)
+     sequence
+       $ SparseMap.fromList
+            (pure noEdge)
+            [ (k,newEdge bitsNeeded) | k <- keys ]
 
 main :: IO ()
 main =
