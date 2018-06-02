@@ -12,7 +12,6 @@ https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/palisade.html
 -}
 module Main where
 
-import           Booleans (MonadSAT)
 import           Control.Applicative (liftA2)
 import           Control.Monad (replicateM)
 import           Data.Char (intToDigit, digitToInt, isDigit)
@@ -33,6 +32,7 @@ import           Data.Foldable (toList, for_)
 import           Data.List (tails)
 
 import           Palisade.Regions
+import           Booleans (MonadSAT, getModel)
 import           BoxDrawing
 import           Coord
 
@@ -62,12 +62,7 @@ cellLocations w h = [ C x y | x <- [0..w-1], y <- [0..h-1] ]
 -- | Given a puzzle determine an assignment of edges that satisfies
 -- the puzzle's clues unless one is impossible.
 solvePuzzleIO :: Puzzle -> IO (Maybe [Region])
-solvePuzzleIO p =
-  do result <- solveWith minisat (solvePuzzle p)
-     case result of
-       (Satisfied, Just x) -> return (Just (catMaybes x))
-       (Unsatisfied, _)    -> return Nothing
-       _                   -> fail "solvePuzzleIO: bad result"
+solvePuzzleIO = fmap (fmap catMaybes) . getModel . solvePuzzle
 
 
 -- | Given a puzzle determine an assignment of edges that satisfies

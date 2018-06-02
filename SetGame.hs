@@ -83,7 +83,7 @@ problem =
 
 main :: IO ()
 main =
-  do (Satisfied, Just sets) <- solveWith minisat problem
+  do Just sets <- getModel problem
      mapM_ print sets
 
 threes :: [a] -> [(a,a,a)]

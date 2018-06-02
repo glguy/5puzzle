@@ -46,13 +46,10 @@ data Color = Green | Red     | Blue   | Yellow | White  deriving (Bounded, Enum,
 
 main :: IO ()
 main =
-  do (Satisfied, Just solution) <- solveWith minisat problem
+  do Just solution <- getModel problem
 
      -- Verify that this solution is unique
-     (Unsatisfied, solution') <- solveWith minisat $
-       problem `checking` (/== encode solution)
-
-     let _ = solution' `asTypeOf` Nothing -- type disambiguation
+     Nothing <- getModel (problem `checking` (/== encode solution))
 
      printTable solution
 

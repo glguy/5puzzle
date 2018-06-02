@@ -108,7 +108,7 @@ main =
                 []  -> "pentomino-puzzles/pieces.txt"
                 x:_ -> x
      Piece board:pieces <- loadPieces fn
-     (Satisfied, Just sol) <- solveWith minisat (problem board pieces)
+     Just sol <- getModel (problem board pieces)
      let sizeSpec = mkSizeSpec (pure Nothing)
      renderSVG "output.svg" sizeSpec (drawSolution sol)
      putStrLn "Solution saved to output.svg"

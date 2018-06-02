@@ -75,12 +75,10 @@ validArrangement rows cols pieces = isTrue validLocations
 main :: IO ()
 main =
   do [rows,cols] <- traverse readIO =<< getArgs
-     sol <- solveWith minisat (problem rows cols) :: IO (Result, Maybe [Piece])
+     sol <- getModel (problem rows cols)
      case sol of
-       (Unsatisfied, _)     -> putStrLn "No solution"
-       (Satisfied, Nothing) -> putStrLn "Panic: unable to parse solution"
-       (Unsolved , _      ) -> putStrLn "Solver failed"
-       (Satisfied, Just xs) ->
+       Nothing -> putStrLn "No solution"
+       Just xs ->
            do let sizeSpec = mkSizeSpec (pure Nothing)
               renderSVG "output.svg" sizeSpec (scale 50 (drawSolution rows cols xs))
               putStrLn "Solution saved to output.svg"

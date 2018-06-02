@@ -109,10 +109,10 @@ problem = assignments
 
 main :: IO ()
 main =
-  do res <- solveWith minisat problem
+  do res <- getModel problem
      case res of
-       (Satisfied, Just sol) -> putStr (render sol)
-       _                     -> putStrLn "End of solutions"
+       Just sol -> putStr (render sol)
+       Nothing  -> putStrLn "No solution"
 
 ------------------------------------------------------------------------
 -- Rendering

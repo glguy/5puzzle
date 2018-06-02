@@ -65,7 +65,7 @@ count target xs = countBits (map eltToBit xs)
 
 main :: IO ()
 main =
-  do (Satisfied, Just res) <- solveWith minisat solution
+  do Just res <- getModel solution
      putStrLn "color(\"BurlyWood\",0.8){"
      for_ (zip locations res) $ \(V3 x y z, piece) ->
         case piece of

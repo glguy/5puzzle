@@ -53,8 +53,7 @@ problem =
 
 main :: IO ()
 main =
-  do let solveWith' = solveWith minisat
-     (Satisfied, Just res) <- solveWith' problem
-     (Unsatisfied, _)      <- solveWith' (problem `checking` (/== encode res))
+  do Just res <- getModel problem
+     Nothing  <- getModel (problem `checking` (/== encode res))
      print res
 

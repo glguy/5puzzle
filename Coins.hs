@@ -101,7 +101,7 @@ check i weight = foldr checkDecision checkAnswer
 -- identify any one coin that is lighter or heavier than all the rest.
 run :: IO (Decision (Weight, Word8))
 run =
-  do (Satisfied, Just (ps,tree)) <- solveWith minisat problem
+  do Just (ps,tree) <- getModel problem
      mapM_ (print . prettyPartition) ps
      return tree
 

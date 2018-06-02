@@ -7,6 +7,9 @@ import Data.List (transpose, mapAccumL)
 import System.Environment
 import Prelude hiding (not, (||), (&&), all)
 
+import BoxDrawing
+import Coord
+
 problem :: MonadSAT s m => Int -> m [[Bit]]
 problem n =
   do ys <- replicateM n
@@ -37,15 +40,21 @@ getSize =
 
 main :: IO ()
 main =
-  do n <- getSize
-     res <- solveWith minisat (problem n)
+  do n   <- getSize
+     res <- getModel (problem n)
      case res of
-       (Satisfied, Just ys) -> putStr (render ys)
-       (Unsatisfied, _    ) -> putStrLn "Impossible"
-       _ -> putStrLn "Failure"
+       Just ys -> putStr (render n ys)
+       Nothing -> putStrLn "Impossible"
 
-render :: [[Bool]] -> String
-render = unlines . map (map render1)
+render :: Int -> [[Bool]] -> String
+render n xs = renderGrid n n drawEdge drawCell
   where
-  render1 True = '*'
-  render1 False = '.'
+    drawEdge (C x y) o
+      | 0 == x && o == Vert  ||
+        0 == y && o == Horiz ||
+        n == x || n == y     = Just Double
+      | otherwise            = Just Thin
+    drawCell (C x y)
+      | xs !! y !! x     = '♕'
+      | even x == even y = '·'
+      | otherwise        = ' '

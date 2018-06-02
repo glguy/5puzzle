@@ -43,7 +43,7 @@ smartMatch regexp =
 
 main :: IO ()
 main =
-  do (Satisfied, Just xs) <- solveWith minisat problem
+  do Just xs <- getModel problem
      putStr (render xs)
 
 problem :: MonadSAT s m => m (Map Pos Letter)

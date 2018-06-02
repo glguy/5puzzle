@@ -17,22 +17,22 @@ ID in the loop is permitted to connect back to the starting element.
 -}
 module Main where
 
-import           Booleans (MonadSAT, countBits)
 import           Control.Monad (replicateM)
 import           Data.Char (intToDigit, digitToInt, isDigit)
 import           Data.List (transpose)
 import           Data.Map (Map)
 import qualified Data.Map as Map
-import           Ersatz
 import           Prelude hiding ((&&),(||),all, any, and, or, not)
-import           SparseMap (SparseMap)
-import qualified SparseMap
 import           System.Environment (getArgs)
 import           System.Exit (exitFailure)
 import           System.IO (hPutStrLn, stderr)
 
+import           Ersatz
 import           BoxDrawing
+import           Booleans (MonadSAT, countBits, getModel)
 import           Coord
+import           SparseMap (SparseMap)
+import qualified SparseMap
 
 ------------------------------------------------------------------------
 -- Board edges
@@ -173,12 +173,7 @@ renderSolution (Puzzle w h clues) solution =
 -- | Given a puzzle determine an assignment of edges that satisfies
 -- the puzzle's clues unless one is impossible.
 solvePuzzleIO :: Puzzle -> IO (Maybe (SparseMap EdgeCoord Bool))
-solvePuzzleIO p =
-  do result <- solveWith minisat (solvePuzzle p)
-     case result of
-       (Satisfied, Just x) -> return (Just x)
-       (Unsatisfied, _)    -> return Nothing
-       _                   -> fail "solvePuzzleIO: bad result"
+solvePuzzleIO = getModel . solvePuzzle
 
 
 -- | Given a puzzle determine an assignment of edges that satisfies

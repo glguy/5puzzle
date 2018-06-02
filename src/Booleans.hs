@@ -2,6 +2,7 @@
 
 module Booleans
   ( MonadSAT
+  , getModel
   , existsNat
   , coverOne
   , unique
@@ -15,7 +16,7 @@ module Booleans
 import Ersatz
 import Data.List (tails, mapAccumL)
 import Data.Foldable (toList)
-import Control.Monad.State (MonadState)
+import Control.Monad.State (MonadState, StateT)
 import Control.Monad (replicateM)
 import Prelude hiding (not, all, (&&), (||), and, or)
 
@@ -73,3 +74,11 @@ any2 f xs ys = or (zipWith f xs ys)
 -- | Count the number of 'true' elements in a list of bits.
 countBits :: [Bit] -> Bits
 countBits = sumBits . map (Bits . return)
+
+getModel :: Codec a => StateT SAT IO a -> IO (Maybe (Decoded a))
+getModel m =
+  do res <- solveWith minisat m
+     case res of
+       (Satisfied, Just x) -> return (Just x)
+       (Unsatisfied, _   ) -> return Nothing
+       _                   -> fail "panic: ersatz bug"

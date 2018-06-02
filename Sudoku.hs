@@ -77,12 +77,10 @@ main :: IO ()
 main =
   do fn          <- getConstraintFileName
      constraints <- parseConstraints <$> readFile fn
-     res         <- solveWith minisat (problem constraints)
+     res         <- getModel (problem constraints)
      case res of
-       (Satisfied, Just sol) -> putStr (render sol)
-       (Unsatisfied, _     ) -> putStrLn "No solution"
-       (Unsolved   , _     ) -> putStrLn "Solver gave up?"
-       (Satisfied, Nothing ) -> fail "Unable to parse solution"
+       Just sol -> putStr (render sol)
+       Nothing  -> putStrLn "No solution"
 
 ------------------------------------------------------------------------
 -- Solution rendering

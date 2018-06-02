@@ -17,7 +17,7 @@ import Diagrams.Backend.SVG (B, renderSVG)
 
 main :: IO ()
 main =
-  do (Satisfied, Just xs) <- solveWith minisat (nonoSolve nonoPuzzle2)
+  do Just xs <- getModel (nonoSolve nonoPuzzle2)
      let asChar True  = '*'
          asChar False = ' '
      putStr $ unlines $ map (map asChar) xs
