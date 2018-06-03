@@ -153,10 +153,7 @@ renderSolution (Puzzle _ w h clues) rs = renderGrid w h drawEdge drawCell
     needsEdge c Vert  = Map.lookup c regionIds /= Map.lookup (left c) regionIds
 
     drawEdge c o
-      | needsEdge c o = Just Thin
+      | needsEdge c o = Just Double
       | otherwise     = Nothing
 
-    drawCell c@(C x y)
-      | Just n <- Map.lookup c clues = intToDigit n
-      | x < w && y < h               = '·'
-      | otherwise                    = ' ' -- right and bottom edge
+    drawCell c@(C x y) = maybe "·" show (Map.lookup c clues)

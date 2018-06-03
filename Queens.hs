@@ -55,6 +55,6 @@ render n xs = renderGrid n n drawEdge drawCell
         n == x || n == y     = Just Double
       | otherwise            = Just Thin
     drawCell (C x y)
-      | xs !! y !! x     = '♕'
-      | even x == even y = '·'
-      | otherwise        = ' '
+      | xs !! y !! x     = "♕"
+      | even x == even y = "·"
+      | otherwise        = " "

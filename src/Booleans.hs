@@ -11,6 +11,7 @@ module Booleans
   , exactlyOne
   , any2, all2
   , countBits
+  , atMostOne
   ) where
 
 import Ersatz
@@ -82,3 +83,11 @@ getModel m =
        (Satisfied, Just x) -> return (Just x)
        (Unsatisfied, _   ) -> return Nothing
        _                   -> fail "panic: ersatz bug"
+
+-- | Returns 'true' when at most one element in the given list-like structure
+-- is 'true'.
+atMostOne :: (Foldable t, Boolean a) => t a -> a
+atMostOne = not . snd . foldl aux (false,false)
+  where
+    aux (one,two) x = (one || x, two || one && x)
+

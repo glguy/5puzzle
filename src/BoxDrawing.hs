@@ -12,6 +12,7 @@ module BoxDrawing
   , boxChar
   , renderGrid
   , renderGridRound
+  , renderGridExt
   ) where
 
 import Control.Monad (guard)
@@ -196,7 +197,7 @@ renderGrid ::
   Int                               {- ^ width      -} ->
   Int                               {- ^ height     -} ->
   (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
-  (Coord -> Char)                   {- ^ cell logic -} ->
+  (Coord -> String)                 {- ^ cell logic -} ->
   String                            {- ^ grid lines -}
 renderGrid = renderGridExt boxChar
 
@@ -205,7 +206,7 @@ renderGridRound ::
   Int                               {- ^ width      -} ->
   Int                               {- ^ height     -} ->
   (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
-  (Coord -> Char)                   {- ^ cell logic -} ->
+  (Coord -> String)                 {- ^ cell logic -} ->
   String                            {- ^ grid lines -}
 renderGridRound = renderGridExt box
   where
@@ -222,17 +223,21 @@ renderGridExt ::
   Int                               {- ^ width      -} ->
   Int                               {- ^ height     -} ->
   (Coord -> Orient -> Maybe Weight) {- ^ edge logic -} ->
-  (Coord -> Char)                   {- ^ cell logic -} ->
+  (Coord -> String)                 {- ^ cell logic -} ->
   String                            {- ^ grid lines -}
-renderGridExt box w h edge cell = rearrange [[render1 (C x y) | x <- [0..w]] | y <- [0..h]]
+renderGridExt box w h edge cell = rearrange (map (map render1) grid)
   where
+    grid = [[(c, cell c) | x <- [0..w], let c = C x y] | y <- [0..h]]
+
+    textWidth = maximum (0 : map (length . snd) (concat grid))
+
     box' u d l r = fromMaybe ' ' (box u d l r)
 
     -- rows of cells of (lines in cell) to single string
     rearrange :: [[[String]]] -> String
     rearrange = unlines . map concat . concat . map transpose
 
-    render1 c@(C x y) = line1:[line2 | y<h]
+    render1 (c@(C x y), text) = line1:[line2 | y<h]
       where
         eR = guard (x<w) >> edge c        Horiz
         eD = guard (y<h) >> edge c        Vert
@@ -240,6 +245,9 @@ renderGridExt box w h edge cell = rearrange [[render1 (C x y) | x <- [0..w]] | y
         eU = guard (0<y) >> edge (up   c) Vert
 
         line1 = box' eU eD eL eR
-              : [box' Nothing Nothing eR eR | x<w]
+              : if x<w then replicate textWidth (box' Nothing Nothing eR eR) else ""
         line2 = box' eD eD Nothing Nothing
-              : [cell c | x<w]
+              : if x<w then leftPad textWidth text else ""
+
+leftPad :: Int -> String -> String
+leftPad i str = replicate (i - length str) ' ' ++ str

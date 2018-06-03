@@ -29,7 +29,7 @@ import           System.IO (hPutStrLn, stderr)
 
 import           Ersatz
 import           BoxDrawing
-import           Booleans (MonadSAT, countBits, getModel, exactlyOne)
+import           Booleans (MonadSAT, countBits, getModel, atMostOne)
 import           Coord
 import           SparseMap (SparseMap)
 import qualified SparseMap
@@ -157,7 +157,7 @@ renderSolution ::
 renderSolution (Puzzle w h clues) solution = renderGridRound w h edge cell
   where
     edge c o = Thin <$ guard (SparseMap.index (c,o) solution)
-    cell c   = maybe '·' intToDigit (Map.lookup c clues)
+    cell c   = maybe "·" show (Map.lookup c clues)
 
 
 ------------------------------------------------------------------------
@@ -188,13 +188,6 @@ solvePuzzle (Puzzle w h clues) =
 
      -- returns map of active edges (forgetting edge IDs)
      return (fmap edgeOn cells)
-
--- | Returns 'true' when at most one element in the given list-like structure
--- is 'true'.
-atMostOne :: (Foldable t, Boolean a) => t a -> a
-atMostOne = not . snd . foldl aux (false,false)
-  where
-    aux (one,two) x = (one || x, two || one && x)
 
 
 -- | Verify that the number in a particular cell matches the actual edges.
