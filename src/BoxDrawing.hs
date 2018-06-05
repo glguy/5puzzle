@@ -227,7 +227,8 @@ renderGridExt ::
   String                            {- ^ grid lines -}
 renderGridExt box w h edge cell = rearrange (map (map render1) grid)
   where
-    grid = [[(c, cell c) | x <- [0..w], let c = C x y] | y <- [0..h]]
+    grid = [[(c, if x == w || y == h then "" else cell c)
+           | x <- [0..w], let c = C x y] | y <- [0..h]]
 
     textWidth = maximum (0 : map (length . snd) (concat grid))
 
