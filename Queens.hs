@@ -14,8 +14,8 @@ problem :: MonadSAT s m => Int -> m [[Bit]]
 problem n =
   do ys <- replicateM n
          $ replicateM n exists
-     assert (all (coverOne  true ) ys)
-     assert (all (coverOne  true ) (transpose ys))
+     assert (all exactlyOne ys)
+     assert (all exactlyOne (transpose ys))
      assert (all zeroOrOne (diagonals ys))
      assert (all zeroOrOne (diagonals (reverse ys)))
      return ys
