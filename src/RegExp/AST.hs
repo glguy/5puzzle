@@ -4,6 +4,7 @@ module RegExp.AST
     empty, one, oneOf, noneOf, anyone, (|||), (>>>), rep, backref,
     repExact, repAtLeast, repBetween,
     grouping, foldRegExp, foldRegExpFull, simplify,
+    mapRegF,
     AcceptsEmpty(..)
   ) where
 

@@ -34,7 +34,8 @@ loadPieces fn =
 parsePiece :: [String] -> Piece
 parsePiece xs = Piece [ V2 rowIx colIx
                         | (rowIx, row) <- zip [0..] xs
-                        , (colIx, '*') <- zip [0..] row
+                        , (colIx, c  ) <- zip [0..] row
+                        , c /= ' '
                         ]
 
 ------------------------------------------------------------------------

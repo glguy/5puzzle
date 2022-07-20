@@ -105,5 +105,11 @@ run =
      mapM_ (print . prettyPartition) ps
      return tree
 
+showTree :: Show a => Decision a -> String
+showTree = unlines . go ""
+  where
+    go n (Answer x) = [reverse n ++ " " ++ show x]
+    go n (Decision hi lo sm) = go ('>':n) hi ++ go ('<':n) lo ++ go ('=':n) sm
+
 main :: IO ()
-main = print =<< run
+main = putStr . showTree =<< run

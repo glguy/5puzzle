@@ -39,8 +39,6 @@ checking m p =
      assert (p x)
      return x
 
-type MonadSAT s m = (HasSAT s, MonadState s m)
-
 unique :: (Foldable t, Equatable a) => t a -> Bit
 unique = all unique1 . tails . toList
   where
@@ -78,7 +76,7 @@ countBits = sumBits . map (Bits . return)
 
 getModel :: Codec a => StateT SAT IO a -> IO (Maybe (Decoded a))
 getModel m =
-  do res <- solveWith minisat m
+  do res <- solveWith anyminisat m
      case res of
        (Satisfied, Just x) -> return (Just x)
        (Unsatisfied, _   ) -> return Nothing

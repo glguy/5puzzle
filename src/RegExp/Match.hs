@@ -12,19 +12,21 @@ import Ersatz (Boolean(..))
 
 data RegS b a = RegS { matched :: b, expr :: RegF Bool a (RegS b a) }
 
-instance AcceptsEmpty (RegS b a) where
-        acceptsEmpty e = acceptsEmpty (expr e)
+instance Functor (RegS b) where
+  fmap f r = r { expr = mapRegF f (expr r) }
 
-advanceRegS :: Boolean c => (a -> b -> c) -> a -> RegS c b -> c -> RegS c b
-advanceRegS eq c = update
+instance AcceptsEmpty (RegS b a) where
+  acceptsEmpty = acceptsEmpty . expr
+
+advanceRegS :: Boolean b => (a -> b) -> RegS b a -> b -> RegS b a
+advanceRegS p = update
   where
    update re isFirst =
     case expr re of
-        Empty -> do
-           RegS { matched = false, expr = Empty }
+        Empty -> RegS { matched = false, expr = Empty }
 
         OneOf mode cs ->
-             let stb = any (eq c) cs
+             let stb = any p cs
                  stb' = case mode of
                           InSet    -> stb
                           NotInSet -> not stb
@@ -57,5 +59,5 @@ match _  e [] = bool (acceptsEmpty e)
 match eq e (c : cs) = matched s2
   where
   s0 = foldRegExp (RegS false) e
-  s1 = advanceRegS eq c s0 true
-  s2 = foldl (\s c1 -> advanceRegS eq c1 s false) s1 cs
+  s1 = advanceRegS (eq c) s0 true
+  s2 = foldl (\s c1 -> advanceRegS (eq c1) s false) s1 cs
